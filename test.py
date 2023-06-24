@@ -6,6 +6,8 @@ from cryptography.fernet import Fernet
 import pyperclip
 import random
 import string
+import smtplib
+from email.message import EmailMessage
 
 # Creating window
 root = Tk()
@@ -15,13 +17,14 @@ root.resizable(False, False)
 root.config(bg="grey")
 
 # Creating database
-conn = sqlite3.connect("password_manager.db")
+conn = sqlite3.connect("C:/Users/joshu/Desktop/fyp/fyp/password_manager.db")
 c = conn.cursor()
 
 # Creating tables
 c.execute("""CREATE TABLE IF NOT EXISTS users(
             username TEXT,
-            password TEXT
+            password TEXT,
+            email TEXT
             )""")
 
 c.execute("""CREATE TABLE IF NOT EXISTS password_manager(
@@ -33,7 +36,7 @@ c.execute("""CREATE TABLE IF NOT EXISTS password_manager(
 conn.commit()
 
 # Creating key
-key_file_path = "key.key"
+key_file_path = "C:/Users/joshu/Desktop/fyp/fyp/key.key"
 key = None
 
 
@@ -71,39 +74,230 @@ password_viewing = False
 # Creating functions
 
 def switch_frame(frame):
+    clear_entries()
     frame.tkraise()
+    
+
+def clear_entries():
+    register_username_entry.delete(0, END)
+    register_password_entry.delete(0, END)
+    register_email_entry.delete(0, END)
+    username_entry.delete(0, END)
+    password_entry.delete(0, END)
+    website_entry.delete(0, END)
+    pm_username_entry.delete(0, END)
+    pm_password_entry.delete(0, END)
 
 
 def register():
-    # Implement your register logic here
-    # Retrieve username and password from the user
+    # Retrieve username, password, and email from the user
     username = register_username_entry.get()
     password = register_password_entry.get()
+    email = register_email_entry.get()
 
     # Check if the username is available
     if is_username_available(username):
-        # Store the credentials
-        store_credentials(username, password)
-        messagebox.showinfo("Success", "User registered successfully!")
+        # Check if the email is already registered
+        if is_email_registered(email):
+            messagebox.showerror("Error", "Email is already registered!")
+        else:
+            # Generate a verification code
+            verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+            
+            # Send the verification code via email
+            send_register_verification_email(email, verification_code)
+            
+            # Prompt the user to enter the verification code
+            entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
+            
+            if entered_code == verification_code:
+                # Store the credentials
+                store_credentials(username, password, email)
+                messagebox.showinfo("Success", "User registered successfully!")
+            else:
+                messagebox.showerror("Error", "Invalid verification code!")
     else:
         messagebox.showerror("Error", "Username is not available! Register another username.")
 
 
+def is_email_registered(email):
+    # Implement your logic to check if the email is already registered
+    c.execute("SELECT * FROM users WHERE email = ?", (email,))
+    user = c.fetchone()
+
+    if user:
+        return True
+
+    return False
+
+
+def send_registration_email(username, email):
+    # Create a message object
+    msg = EmailMessage()
+    
+    # Set the subject and recipient
+    msg["Subject"] = "Registration Successful"
+    msg["To"] = email
+    
+    # Compose the email body
+    body = f"Dear {username},\n\nThank you for registering on our password manager application!\n\n" \
+           "Your registration was successful.\n\nBest regards,\nThe Password Manager Team"
+    msg.set_content(body)
+    
+    # Set up the email server
+    smtp_server = "smtp.gmail.com"  # Replace with SMTP server
+    smtp_port = 587  # Replace with the SMTP server port
+    smtp_username = "passcryptfyp@gmail.com"  # Replace with email address
+    smtp_password = "juutvufhgiptipay"  # Replace with app password
+    
+    # Connect to the email server
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        
+        # Send the email
+        server.send_message(msg)
+
+
+def send_register_verification_email(email, verification_code):
+    # Create a message object
+    msg = EmailMessage()
+    
+    # Set the subject and recipient
+    msg["Subject"] = "Register Verification Code"
+    msg["To"] = email
+    
+    # Compose the email body
+    body = f"Your verification code for register is: {verification_code}"
+    msg.set_content(body)
+    
+    # Set up the email server
+    smtp_server = "smtp.gmail.com"  # Replace with SMTP server
+    smtp_port = 587  # Replace with the SMTP server port
+    smtp_username = "passcryptfyp@gmail.com"  # Replace with email address
+    smtp_password = "juutvufhgiptipay"  # Replace with app password
+    
+    # Connect to the email server
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        
+        # Send the email
+        server.send_message(msg)
+
+def send_login_verification_email(email, verification_code):
+    # Create a message object
+    msg = EmailMessage()
+    
+    # Set the subject and recipient
+    msg["Subject"] = "Verification Code"
+    msg["To"] = email
+    
+    # Compose the email body
+    body = f"Your verification code for login is: {verification_code}\n\n"\
+        "If you did not request for this, please change your password immediately."
+    msg.set_content(body)
+    
+    # Set up the email server
+    smtp_server = "smtp.gmail.com"  # Replace with SMTP server
+    smtp_port = 587  # Replace with the SMTP server port
+    smtp_username = "passcryptfyp@gmail.com"  # Replace with email address
+    smtp_password = "juutvufhgiptipay"  # Replace with app password
+    
+    # Connect to the email server
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        
+        # Send the email
+        server.send_message(msg)
+
+
+def send_delete_verification_email(email, verification_code):
+    # Create a message object
+    msg = EmailMessage()
+    
+    # Set the subject and recipient
+    msg["Subject"] = "Verification Code"
+    msg["To"] = email
+    
+    # Compose the email body
+    body = f"Your verification code for password record deletetion is: {verification_code}\n\n" \
+        "If you did not request for this, please change your password immediately."
+    msg.set_content(body)
+    
+    # Set up the email server
+    smtp_server = "smtp.gmail.com"  # Replace with SMTP server
+    smtp_port = 587  # Replace with the SMTP server port
+    smtp_username = "passcryptfyp@gmail.com"  # Replace with email address
+    smtp_password = "juutvufhgiptipay"  # Replace with app password
+    
+    # Connect to the email server
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        
+        # Send the email
+        server.send_message(msg)
+
+def send_verification_email(email, verification_code):
+    # Create a message object
+    msg = EmailMessage()
+    
+    # Set the subject and recipient
+    msg["Subject"] = "Verification Code"
+    msg["To"] = email
+    
+    # Compose the email body
+    body = f"Your verification code for making changes on your password manager account is: {verification_code}\n\n"\
+        "If you did not request for this, please change your password immediately."
+    msg.set_content(body)
+    
+    # Set up the email server
+    smtp_server = "smtp.gmail.com"  # Replace with SMTP server
+    smtp_port = 587  # Replace with the SMTP server port
+    smtp_username = "passcryptfyp@gmail.com"  # Replace with email address
+    smtp_password = "juutvufhgiptipay"  # Replace with app password
+    
+    # Connect to the email server
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        
+        # Send the email
+        server.send_message(msg)
+
 def login():
-    # Implement your login logic here
     # Retrieve username and password from the user
     username = username_entry.get()
     password = password_entry.get()
 
     # Check if the credentials are valid
     if check_credentials(username, password):
-        global logged_in
-        logged_in = True
+        # Generate a verification code
+        verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+        
+        # Retrieve the user's email
+        c.execute("SELECT email FROM users WHERE username = ?", (username,))
+        email = c.fetchone()[0]
+        
+        # Send the verification code via email
+        send_login_verification_email(email, verification_code)
+        
+        # Prompt the user to enter the verification code
+        entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
+        
+        if entered_code == verification_code:
+            global logged_in
+            logged_in = True
 
-        switch_frame(password_manager_frame)
-        clear_entries()
+            switch_frame(password_manager_frame)
+            clear_entries()
+        else:
+            messagebox.showerror("Error", "Invalid verification code!")
     else:
         messagebox.showerror("Error", "Invalid credentials!")
+
 
 
 def logout():
@@ -111,7 +305,6 @@ def logout():
     logged_in = False
     switch_frame(login_frame)
     clear_entries()
-
 
 def generate_password():
     # Generate a random password with a combination of letters, digits, and special characters
@@ -123,6 +316,72 @@ def generate_password():
     # Insert the generated password into the password entry field
     pm_password_entry.delete(0, END)
     pm_password_entry.insert(0, password)
+
+def generate_preference_password():
+    # Prompt the user to enter password length and complexity
+    password_length = simpledialog.askinteger("Password Length", "Enter the password length:")
+    password_complexity = simpledialog.askstring("Password Complexity", "Enter the password complexity (weak, medium, strong):")
+    
+    # Validate password length
+    if password_length is None or password_length <= 0:
+        messagebox.showerror("Error", "Invalid password length!")
+        return
+    
+    # Validate password complexity
+    if password_complexity is None or password_complexity not in ["weak", "medium", "strong"]:
+        messagebox.showerror("Error", "Invalid password complexity!")
+        return
+    
+    # Generate a random password based on the provided length and complexity
+    lowercase_letters = string.ascii_lowercase
+    uppercase_letters = string.ascii_uppercase
+    digits = string.digits
+    special_characters = string.punctuation
+    
+    if password_complexity == "weak":
+        # Generate a password with only lowercase letters and digits
+        password_characters = lowercase_letters + digits
+    elif password_complexity == "medium":
+        # Generate a password with lowercase letters, uppercase letters, and digits
+        password_characters = lowercase_letters + uppercase_letters + digits
+    else:
+        # Generate a password with lowercase letters, uppercase letters, digits, and special characters
+        password_characters = lowercase_letters + uppercase_letters + digits + special_characters
+    
+    password_length -= len(password_characters)  # Subtract the length of password_characters from the total length
+    
+    if password_length <= 0:
+        messagebox.showerror("Error", "Password length is too short for additional keywords!")
+        return
+    
+    # Prompt the user to enter additional keywords
+    additional_keywords = simpledialog.askstring("Additional Keywords", "Enter additional keywords (comma-separated):")
+    
+    if additional_keywords:
+        # Split the additional keywords by comma and remove any leading/trailing spaces
+        keywords = [keyword.strip() for keyword in additional_keywords.split(",")]
+        
+        # Check if the combined length of keywords is greater than the remaining password length
+        if sum(len(keyword) for keyword in keywords) > password_length:
+            messagebox.showerror("Error", "Combined length of additional keywords is greater than the remaining password length!")
+            return
+        
+        # Shuffle the keywords and insert them randomly into the password
+        random.shuffle(keywords)
+        for keyword in keywords:
+            if len(keyword) <= password_length:
+                password_characters += keyword
+                password_length -= len(keyword)
+            else:
+                password_characters += keyword[:password_length]
+                break
+    
+    password = ''.join(random.choice(password_characters) for _ in range(password_length))
+    
+    # Insert the generated password into the password entry field
+    pm_password_entry.delete(0, END)
+    pm_password_entry.insert(0, password)
+
 
 
 def check_credentials(username, password):
@@ -150,10 +409,10 @@ def is_username_available(username):
     return True
 
 
-def store_credentials(username, password):
-    # Implement your logic to store the username and password
+def store_credentials(username, password, email):
+    # Implement your logic to store the username, password, and email
     encrypted_password = encrypt_password(password)  # Encrypt the password
-    c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, encrypted_password))
+    c.execute("INSERT INTO users (username, password, email) VALUES (?, ?, ?)", (username, encrypted_password, email))
     conn.commit()
 
 
@@ -213,13 +472,6 @@ def show_passwords():
         messagebox.showerror("Error", "Please log in to access the password manager!")
         return
 
-    global password_viewing
-    if password_viewing:
-        messagebox.showinfo("Info", "You are already viewing the passwords!")
-        return
-
-    password_viewing = True
-
     # Prompt the user to enter the login password
     password_prompt = simpledialog.askstring("Password", "Enter your login password:", show="*")
     if password_prompt is None:
@@ -246,53 +498,219 @@ def show_passwords():
 
 
 def delete_record():
-    
+    # Check if the user is logged in
     if not logged_in:
-        messagebox.showerror("Error", "Please log in to access the password manager!")
+        messagebox.showerror("Error", "Please log in first!")
         return
 
-    selected_item = password_listbox.curselection()
-    if not selected_item:
-        messagebox.showwarning("Warning", "Please select a record to delete!")
-        return
-    
-    messagebox.showwarning("Warning", "This action cannot be undone!")
-    
-    # Prompt the user to enter the login password
-    password_prompt = simpledialog.askstring("Password", "Enter your login password:", show="*")
-    if password_prompt is None:
-        return
+    # Retrieve the selected password record from the listbox
+    selected_password = password_listbox.get(password_listbox.curselection())
 
-    # Check if the entered password is valid
-    if not check_credentials(username_entry.get(), password_prompt):
-        messagebox.showerror("Error", "Invalid login password!")
-        return
+    # Generate a verification code
+    verification_code = ''.join(random.choice(string.digits) for _ in range(6))
 
+    # Retrieve the user's email
+    c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
+    email = c.fetchone()[0]
 
-    password = password_listbox.get(selected_item)
-    password_parts = password.split(" - ")
-    if len(password_parts) > 2:
-        website = password_parts[0].split(": ")[1]
-        username = password_parts[1].split(": ")[1]
-        c.execute("DELETE FROM password_manager WHERE website = ? AND username = ?", (website, username))
+    # Send the verification code via email
+    send_delete_verification_email(email, verification_code)
+
+    # Prompt the user to enter the verification code
+    entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
+
+    # Check if the entered code matches the verification code
+    if entered_code == verification_code:
+        # Extract the website name from the selected record
+        website = selected_password.split(" - ")[0].split(": ")[1]
+
+        # Delete the selected record from the database
+        c.execute("DELETE FROM password_manager WHERE website = ?", (website,))
         conn.commit()
-        password_listbox.delete(selected_item)
-        messagebox.showinfo("Success", "Record deleted successfully!")
+
+        # Clear the password listbox and show the updated passwords
+        clear_passwords()
+        show_passwords()
+
+        messagebox.showinfo("Success", "Selected record has been deleted.")
     else:
-        messagebox.showerror("Error", "Invalid password format!")
+        messagebox.showerror("Error", "Invalid verification code!")
+        return
+
+def change_password():
+    # Check if the user is logged in
+    if not logged_in:
+        messagebox.showerror("Error", "Please log in first!")
+        return
+
+    # Prompt the user to enter the current password
+    current_password = simpledialog.askstring("Change Password", "Enter your current password:", show="*")
+    if current_password is None:
+        return
+
+    # Retrieve the current password from the database
+    c.execute("SELECT password FROM users WHERE username = ?", (username_entry.get(),))
+    result = c.fetchone()
+    if result is None:
+        messagebox.showerror("Error", "User not found!")
+        return
+    stored_password = result[0]
+
+    # Check if the entered password matches the current password
+    if not check_credentials(username_entry.get(), current_password):
+        messagebox.showerror("Error", "Invalid password!")
+        return
+
+    # Prompt the user to enter a new password
+    new_password = simpledialog.askstring("Change Password", "Enter a new password:", show="*")
+    if new_password is None:
+        return
+
+    # Perform code verification similar to delete_record()
+    verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+
+    # Retrieve the email from the database
+    c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
+    result = c.fetchone()
+    if result is None:
+        messagebox.showerror("Error", "User not found!")
+        return
+    email = result[0]
+
+    # Send the verification code via email
+    send_verification_email(email, verification_code)
+
+    # Prompt the user to enter the verification code
+    entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
+    if entered_code is None:
+        return
+
+    # Check if the entered code matches the verification code
+    if entered_code == verification_code:
+        # Update the password in the database
+        encrypted_new_password = encrypt_password(new_password)
+        c.execute("UPDATE users SET password = ? WHERE username = ?", (encrypted_new_password, username_entry.get()))
+        conn.commit()
+
+        messagebox.showinfo("Success", "Password changed successfully!")
+    else:
+        messagebox.showerror("Error", "Invalid verification code!")
+
+def change_username():
+    # Check if the user is logged in
+    if not logged_in:
+        messagebox.showerror("Error", "Please log in first!")
+        return
+
+    # Prompt the user to enter the new username
+    new_username = simpledialog.askstring("Change Username", "Enter a new username:")
+    if new_username is None:
+        return
+
+    # Retrieve the current email from the database
+    c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
+    result = c.fetchone()
+    if result is None:
+        messagebox.showerror("Error", "User not found!")
+        return
+    email = result[0]
+
+    # Perform code verification similar to delete_record()
+    verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+
+    # Send the verification code via email
+    send_verification_email(email, verification_code)
+
+    # Prompt the user to enter the verification code
+    entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
+    if entered_code is None:
+        return
+
+    # Check if the entered code matches the verification code
+    if entered_code == verification_code:
+        # Update the username in the database
+        c.execute("UPDATE users SET username = ? WHERE username = ?", (new_username, username_entry.get()))
+        conn.commit()
+
+        # Update the logged-in username
+        username_entry.delete(0, END)
+        username_entry.insert(0, new_username)
+
+        messagebox.showinfo("Success", "Username changed successfully!")
+    else:
+        messagebox.showerror("Error", "Invalid verification code!")
+
+def change_email():
+    # Check if the user is logged in
+    if not logged_in:
+        messagebox.showerror("Error", "Please log in first!")
+        return
+
+    # Prompt the user to enter the new email
+    new_email = simpledialog.askstring("Change Email", "Enter a new email:")
+    if new_email is None:
+        return
+
+    # Retrieve the current email from the database
+    c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
+    result = c.fetchone()
+    if result is None:
+        messagebox.showerror("Error", "User not found!")
+        return
+    email = result[0]
+
+    # Perform code verification similar to delete_record()
+    verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+
+    # Send the verification code via email
+    send_verification_email(email, verification_code)
+
+    # Prompt the user to enter the verification code
+    entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
+    if entered_code is None:
+        return
+
+    # Check if the entered code matches the verification code
+    if entered_code == verification_code:
+        # Update the email in the database
+        c.execute("UPDATE users SET email = ? WHERE username = ?", (new_email, username_entry.get()))
+        conn.commit()
+
+        messagebox.showinfo("Success", "Email changed successfully!")
+    else:
+        messagebox.showerror("Error", "Invalid verification code!")
+
+
 
 
 def clear_passwords():
     password_viewing = False
     password_listbox.delete(0, END)
 
+def switch_to_password_manager():
+    saved_passwords_frame.grid_forget()  
+    password_manager_frame.grid(row=0, column=0, sticky="nsew")  
+    password_manager_frame.tkraise()  
+
+    
+def switch_to_saved_passwords():
+    password_manager_frame.grid_forget()  
+    saved_passwords_frame.grid(row=0, column=0, sticky="nsew")  
+    saved_passwords_frame.tkraise()  
+
+def switch_to_settings():
+    password_manager_frame.grid_forget()  
+    settings_frame.grid(row=0, column=0, sticky="nsew")  
+    settings_frame.tkraise()
 
 # Creating GUI elements
 login_frame = Frame(root)
 register_frame = Frame(root)
 password_manager_frame = Frame(root)
+saved_passwords_frame = Frame(root)
+settings_frame = Frame(root)
 
-for frame in (login_frame, register_frame, password_manager_frame):
+for frame in (login_frame, register_frame, password_manager_frame,settings_frame):
     frame.grid(row=0, column=0, sticky="nsew")
 
 root.grid_rowconfigure(0, weight=1)
@@ -339,9 +757,14 @@ register_username_entry.pack()
 register_password_label = Label(register_frame, text="Password:")
 register_password_label.pack()
 
-# Set the 'show' attribute to '*'
 register_password_entry = Entry(register_frame, show="*")
 register_password_entry.pack()
+
+register_email_label = Label(register_frame, text="Email:")
+register_email_label.pack()
+
+register_email_entry = Entry(register_frame)
+register_email_entry.pack()
 
 register_button = Button(register_frame, text="Register", command=register)
 register_button.pack()
@@ -352,6 +775,7 @@ login_button.pack()
 # Bind the <Return> event to the register function
 register_username_entry.bind('<Return>', lambda event: register())
 register_password_entry.bind('<Return>', lambda event: register())
+register_email_entry.bind('<Return>', lambda event: register())
 
 
 # Password Manager frame
@@ -373,33 +797,81 @@ pm_username_entry.pack()
 pm_password_label = Label(password_manager_frame, text="Password:")
 pm_password_label.pack()
 
-# Set the 'show' attribute to '*'
-pm_password_entry = Entry(password_manager_frame)
+pm_password_entry = Entry(password_manager_frame, show="*")
 pm_password_entry.pack()
 
-generate_button = Button(password_manager_frame, text="Generate Password", command=generate_password)
-generate_button.pack()
+generate_password_button = Button(password_manager_frame, text="Generate Password", command=generate_password)
+generate_password_button.pack()
 
+generate_preference_password_entry = Button(password_manager_frame, text="Generate Preference Password", command=generate_preference_password)
+generate_preference_password_entry.pack()
 
-save_button = Button(password_manager_frame, text="Save", command=save_password)
-save_button.pack()
+save_password_button = Button(password_manager_frame, text="Save Password", command=save_password)
+save_password_button.pack()
 
-password_listbox = Listbox(password_manager_frame, width=60)
-password_listbox.pack()
+switch_to_saved_passwords_button = Button(password_manager_frame, text="Switch to Saved Passwords", command=switch_to_saved_passwords)
+switch_to_saved_passwords_button.pack()
 
-copy_button = Button(password_manager_frame, text="Copy Password", command=copy_password)
-copy_button.pack()
-
-show_passwords_button = Button(password_manager_frame, text="Show Passwords", command=show_passwords)
-show_passwords_button.pack()
-
-delete_button = Button(password_manager_frame, text="Delete Record", command=delete_record)
-delete_button.pack()
+switch_to_settings_button = Button(password_manager_frame, text="Switch to Settings", command=switch_to_settings)
+switch_to_settings_button.pack()
 
 logout_button = Button(password_manager_frame, text="Logout", command=logout)
 logout_button.pack()
 
+# Switch to the login frame after logout
+logout_button.bind('<ButtonRelease-1>', lambda event: switch_frame(login_frame))
+
+# Saved Passwords frame
+password_listbox = Listbox(saved_passwords_frame, width=60)
+password_listbox.pack()
+
+copy_password_button = Button(saved_passwords_frame, text="Copy Password", command=copy_password)
+copy_password_button.pack()
+
+show_passwords_button = Button(saved_passwords_frame, text="Show Passwords", command=show_passwords)
+show_passwords_button.pack()
+
+delete_record_button = Button(saved_passwords_frame, text="Delete Record", command=delete_record)
+delete_record_button.pack()
+
+clear_passwords_button = Button(saved_passwords_frame, text="Clear Passwords", command=clear_passwords)
+clear_passwords_button.pack()
+
+switch_to_password_manager_button = Button(saved_passwords_frame, text="Switch to Password Manager", command=switch_to_password_manager)
+switch_to_password_manager_button.pack()
+
+# switch to setting frame
+change_username_button = Button(settings_frame, text="Change Username", command=change_username)
+change_username_button.pack()
+
+change_password_button = Button(settings_frame, text="Change Password", command=change_password)
+change_password_button.pack()
+
+change_email_button = Button(settings_frame, text="Change Email", command=change_email)
+change_email_button.pack()
+
+switch_to_password_manager_button = Button(settings_frame, text="Switch to Password Manager", command=switch_to_password_manager)
+switch_to_password_manager_button.pack()
+
+switch_to_saved_passwords_button = Button(settings_frame, text="Switch to Saved Passwords", command=switch_to_saved_passwords)
+switch_to_saved_passwords_button.pack()
+
+logout_button = Button(settings_frame, text="Logout", command=logout)
+logout_button.pack()
+
+
+# Bind the <Return> event to the save_password function
+website_entry.bind('<Return>', lambda event: save_password())
+pm_username_entry.bind('<Return>', lambda event: save_password())
+pm_password_entry.bind('<Return>', lambda event: save_password())
+
+
+# Configure grid weights for the password manager frame
+password_manager_frame.grid_rowconfigure(10, weight=1)
+password_manager_frame.grid_columnconfigure(0, weight=1)
+
+# Start the GUI
 root.mainloop()
 
-# Close the database connection when the application exits
+# Close the database connection
 conn.close()
