@@ -1,5 +1,7 @@
 import base64
 import os
+import sys
+from dotenv import load_dotenv
 from tkinter import *
 from tkinter import messagebox
 from tkinter import simpledialog
@@ -12,6 +14,8 @@ import random
 import string
 import smtplib
 from email.message import EmailMessage
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
 
 # Creating window
 root = Tk()
@@ -20,8 +24,18 @@ root.geometry("500x500")
 root.resizable(False, False)
 root.config(bg="grey")
 
+load_dotenv()
+
+
+root_path = __file__
+
+# get basename of root_path
+root_path = os.path.basename(root_path)
+
 # Creating database
-conn = sqlite3.connect("C:/Users/joshu/Desktop/fyp/fyp/SMTP/password_manager.db")
+database_path = os.path.join(os.path.dirname(root_path), "password_manager.db")
+
+conn = sqlite3.connect(database_path)
 c = conn.cursor()
 
 # Creating tables
@@ -39,8 +53,9 @@ c.execute("""CREATE TABLE IF NOT EXISTS password_manager(
 
 conn.commit()
 
-# Creating key
-key_file_path = "C:/Users/joshu/Desktop/fyp/fyp/SMTP/key.key"
+
+
+key_file_path = os.path.join(os.path.dirname(root_path), "key.key")
 key = None
 
 
@@ -78,7 +93,7 @@ password_viewing = False
 def switch_frame(frame):
     clear_entries()
     frame.tkraise()
-    
+    print ("test successful")
 
 def clear_entries():
     register_username_entry.delete(0, END)
@@ -147,10 +162,10 @@ def send_registration_email(username, email):
     msg.set_content(body)
     
     # Set up the email server
-    smtp_server = "smtp.gmail.com"  # Replace with SMTP server
-    smtp_port = 587  # Replace with the SMTP server port
-    smtp_username = "passcryptfyp@gmail.com"  # Replace with email address
-    smtp_password = "juutvufhgiptipay"  # Replace with app password
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = int(os.getenv("SMTP_PORT"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
     
     # Connect to the email server
     with smtplib.SMTP(smtp_server, smtp_port) as server:
@@ -174,10 +189,10 @@ def send_register_verification_email(email, verification_code):
     msg.set_content(body)
     
     # Set up the email server
-    smtp_server = "smtp.gmail.com"  # Replace with SMTP server
-    smtp_port = 587  # Replace with the SMTP server port
-    smtp_username = "passcryptfyp@gmail.com"  # Replace with email address
-    smtp_password = "juutvufhgiptipay"  # Replace with app password
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = int(os.getenv("SMTP_PORT"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
     
     # Connect to the email server
     with smtplib.SMTP(smtp_server, smtp_port) as server:
@@ -201,10 +216,10 @@ def send_login_verification_email(email, verification_code):
     msg.set_content(body)
     
     # Set up the email server
-    smtp_server = "smtp.gmail.com"  # Replace with SMTP server
-    smtp_port = 587  # Replace with the SMTP server port
-    smtp_username = "passcryptfyp@gmail.com"  # Replace with email address
-    smtp_password = "juutvufhgiptipay"  # Replace with app password
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = int(os.getenv("SMTP_PORT"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
     
     # Connect to the email server
     with smtplib.SMTP(smtp_server, smtp_port) as server:
@@ -229,10 +244,10 @@ def send_delete_verification_email(email, verification_code):
     msg.set_content(body)
     
     # Set up the email server
-    smtp_server = "smtp.gmail.com"  # Replace with SMTP server
-    smtp_port = 587  # Replace with the SMTP server port
-    smtp_username = "passcryptfyp@gmail.com"  # Replace with email address
-    smtp_password = "juutvufhgiptipay"  # Replace with app password
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = int(os.getenv("SMTP_PORT"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
     
     # Connect to the email server
     with smtplib.SMTP(smtp_server, smtp_port) as server:
@@ -256,10 +271,10 @@ def send_verification_email(email, verification_code):
     msg.set_content(body)
     
     # Set up the email server
-    smtp_server = "smtp.gmail.com"  # Replace with SMTP server
-    smtp_port = 587  # Replace with the SMTP server port
-    smtp_username = "passcryptfyp@gmail.com"  # Replace with email address
-    smtp_password = "juutvufhgiptipay"  # Replace with app password
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = int(os.getenv("SMTP_PORT"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")  
     
     # Connect to the email server
     with smtplib.SMTP(smtp_server, smtp_port) as server:
@@ -268,6 +283,41 @@ def send_verification_email(email, verification_code):
         
         # Send the email
         server.send_message(msg)
+
+
+def send_files(email, filenames):
+    # Create a message object
+    msg = EmailMessage()
+    
+    # Set the subject and recipient
+    msg["Subject"] = "Verification Code"
+    msg["To"] = email
+    
+    # Compose the email body
+    body = f"Attached is the db and key file"
+    msg.set_content(body)
+
+    for file in filenames:
+        with open(file, "rb") as f:
+            file_data = f.read()
+            file_name = f.name
+
+        msg.add_attachment(file_data, maintype="application", subtype="octet-stream", filename=file_name)
+    
+    # Set up the email server
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = int(os.getenv("SMTP_PORT"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    
+    # Connect to the email server
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        
+        # Send the email
+        server.send_message(msg)
+
 
 def login():
     # Retrieve username and password from the user
@@ -292,7 +342,7 @@ def login():
         if entered_code == verification_code:
             global logged_in
             logged_in = True
-
+            
             switch_frame(password_manager_frame)
             clear_entries()
         else:
@@ -301,12 +351,22 @@ def login():
         messagebox.showerror("Error", "Invalid credentials!")
 
 
-
 def logout():
     global logged_in
     logged_in = False
+    # retrieve user email address
+    c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
+    email = c.fetchone()[0]
+
+    # send db file to email
+    prompt_send_db = simpledialog.askstring("Send DB", "Send db file: yes/no")
+    if prompt_send_db == "yes":
+        send_files(email, [database_path, key_file_path])
+    else:
+        pass
     switch_frame(login_frame)
     clear_entries()
+    
 
 def generate_password():
     # Generate a random password with a combination of letters, digits, and special characters
@@ -900,5 +960,3 @@ password_manager_frame.grid_columnconfigure(0, weight=1)
 # Start the GUI
 root.mainloop()
 
-# Close the database connection
-conn.close()
