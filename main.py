@@ -1,6 +1,6 @@
 import base64
 import os
-import sys
+import time
 from dotenv import load_dotenv
 from tkinter import *
 from tkinter import messagebox
@@ -118,21 +118,23 @@ def register():
         if is_email_registered(email):
             messagebox.showerror("Error", "Email is already registered!")
         else:
-            # Generate a verification code
+            # Generate a verification code and its expiry timestamp
             verification_code = ''.join(random.choice(string.digits) for _ in range(6))
-            
+            verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
+
             # Send the verification code via email
             send_register_verification_email(email, verification_code)
-            
+
             # Prompt the user to enter the verification code
             entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
-            
-            if entered_code == verification_code:
+
+            # Check the validity of the verification code
+            if entered_code == verification_code and time.time() <= verification_code_expiry:
                 # Store the credentials
                 store_credentials(username, password, email)
                 messagebox.showinfo("Success", "User registered successfully!")
             else:
-                messagebox.showerror("Error", "Invalid verification code!")
+                messagebox.showerror("Error", "Invalid or expired verification code!")
     else:
         messagebox.showerror("Error", "Username is not available! Register another username.")
 
@@ -185,7 +187,8 @@ def send_register_verification_email(email, verification_code):
     msg["To"] = email
     
     # Compose the email body
-    body = f"Your verification code for register is: {verification_code}"
+    body = f"Your verification code for register is: {verification_code}\n\n" \
+           "Please use the above code within 5 minutes to complete the registration process."
     msg.set_content(body)
     
     # Set up the email server
@@ -201,6 +204,9 @@ def send_register_verification_email(email, verification_code):
         
         # Send the email
         server.send_message(msg)
+    
+    
+
 
 def send_login_verification_email(email, verification_code):
     # Create a message object
@@ -211,8 +217,9 @@ def send_login_verification_email(email, verification_code):
     msg["To"] = email
     
     # Compose the email body
-    body = f"Your verification code for login is: {verification_code}\n\n"\
-        "If you did not request for this, please change your password immediately."
+    body = f"Your verification code for login is: {verification_code}\n" \
+           "If you did not request this, please change your password immediately.\n"\
+            "Please use the above code within 5 minutes to complete the login process."
     msg.set_content(body)
     
     # Set up the email server
@@ -230,7 +237,7 @@ def send_login_verification_email(email, verification_code):
         server.send_message(msg)
 
 
-def send_delete_verification_email(email, verification_code):
+def send_delete_verification_email(email, verification_code):    
     # Create a message object
     msg = EmailMessage()
     
@@ -239,8 +246,9 @@ def send_delete_verification_email(email, verification_code):
     msg["To"] = email
     
     # Compose the email body
-    body = f"Your verification code for password record deletetion is: {verification_code}\n\n" \
-        "If you did not request for this, please change your password immediately."
+    body = f"Your verification code for password record deletion is: {verification_code}\n" \
+           "If you did not request this, please change your password immediately.\n"\
+           "The Verification code will expire in 5 minutes."
     msg.set_content(body)
     
     # Set up the email server
@@ -257,7 +265,7 @@ def send_delete_verification_email(email, verification_code):
         # Send the email
         server.send_message(msg)
 
-def send_verification_email(email, verification_code):
+def send_verification_email(email, verification_code): 
     # Create a message object
     msg = EmailMessage()
     
@@ -266,15 +274,16 @@ def send_verification_email(email, verification_code):
     msg["To"] = email
     
     # Compose the email body
-    body = f"Your verification code for making changes on your password manager account is: {verification_code}\n\n"\
-        "If you did not request for this, please change your password immediately."
+    body = f"Your verification code for making changes on your password manager account is: {verification_code}\n" \
+           "If you did not request this, please change your password immediately.\n"\
+           "The Verification code will expire in 5 minutes."
     msg.set_content(body)
     
     # Set up the email server
     smtp_server = os.getenv("SMTP_SERVER")
     smtp_port = int(os.getenv("SMTP_PORT"))
     smtp_username = os.getenv("SMTP_USERNAME")
-    smtp_password = os.getenv("SMTP_PASSWORD")  
+    smtp_password = os.getenv("SMTP_PASSWORD")
     
     # Connect to the email server
     with smtplib.SMTP(smtp_server, smtp_port) as server:
@@ -326,8 +335,9 @@ def login():
 
     # Check if the credentials are valid
     if check_credentials(username, password):
-        # Generate a verification code
+        # Generate a verification code and its expiry timestamp
         verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+        verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
         
         # Retrieve the user's email
         c.execute("SELECT email FROM users WHERE username = ?", (username,))
@@ -339,14 +349,15 @@ def login():
         # Prompt the user to enter the verification code
         entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
         
-        if entered_code == verification_code:
+        # Check the validity of the verification code
+        if entered_code == verification_code and time.time() <= verification_code_expiry:
             global logged_in
             logged_in = True
             
             switch_frame(password_manager_frame)
             clear_entries()
         else:
-            messagebox.showerror("Error", "Invalid verification code!")
+            messagebox.showerror("Error", "Invalid or expired verification code!")
     else:
         messagebox.showerror("Error", "Invalid credentials!")
 
@@ -593,8 +604,9 @@ def delete_record():
     # Retrieve the selected password record from the listbox
     selected_password = password_listbox.get(password_listbox.curselection())
 
-    # Generate a verification code
+    # Generate a verification code and its expiry timestamp
     verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+    verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
 
     # Retrieve the user's email
     c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
@@ -606,8 +618,8 @@ def delete_record():
     # Prompt the user to enter the verification code
     entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
 
-    # Check if the entered code matches the verification code
-    if entered_code == verification_code:
+    # Check if the entered code matches the verification code and is within the expiry time
+    if entered_code == verification_code and time.time() <= verification_code_expiry:
         # Extract the website name from the selected record
         website = selected_password.split(" - ")[0].split(": ")[1]
 
@@ -621,7 +633,53 @@ def delete_record():
 
         messagebox.showinfo("Success", "Selected record has been deleted.")
     else:
-        messagebox.showerror("Error", "Invalid verification code!")
+        messagebox.showerror("Error", "Invalid or expired verification code!")
+        return
+
+def change_username():
+    # Check if the user is logged in
+    if not logged_in:
+        messagebox.showerror("Error", "Please log in first!")
+        return
+
+    # Prompt the user to enter the new username
+    new_username = simpledialog.askstring("Change Username", "Enter a new username:")
+    if new_username is None:
+        return
+
+    # Retrieve the current email from the database
+    c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
+    result = c.fetchone()
+    if result is None:
+        messagebox.showerror("Error", "User not found!")
+        return
+    email = result[0]
+
+    # Perform code verification similar to delete_record()
+    verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+    verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
+
+    # Send the verification code via email
+    send_verification_email(email, verification_code)
+
+    # Prompt the user to enter the verification code
+    entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
+    if entered_code is None:
+        return
+
+    # Check if the entered code matches the verification code and is within the expiry time
+    if entered_code == verification_code and time.time() <= verification_code_expiry:
+        # Update the username in the database
+        c.execute("UPDATE users SET username = ? WHERE username = ?", (new_username, username_entry.get()))
+        conn.commit()
+
+        # Update the logged-in username
+        username_entry.delete(0, END)
+        username_entry.insert(0, new_username)
+
+        messagebox.showinfo("Success", "Username changed successfully!")
+    else:
+        messagebox.showerror("Error", "Invalid or expired verification code!")
         return
 
 def change_password():
@@ -655,6 +713,7 @@ def change_password():
 
     # Perform code verification similar to delete_record()
     verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+    verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
 
     # Retrieve the email from the database
     c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
@@ -672,8 +731,8 @@ def change_password():
     if entered_code is None:
         return
 
-    # Check if the entered code matches the verification code
-    if entered_code == verification_code:
+    # Check if the entered code matches the verification code and is within the expiry time
+    if entered_code == verification_code and time.time() <= verification_code_expiry:
         # Update the password in the database
         encrypted_new_password = encrypt_password(new_password)
         c.execute("UPDATE users SET password = ? WHERE username = ?", (encrypted_new_password, username_entry.get()))
@@ -681,51 +740,7 @@ def change_password():
 
         messagebox.showinfo("Success", "Password changed successfully!")
     else:
-        messagebox.showerror("Error", "Invalid verification code!")
-
-def change_username():
-    # Check if the user is logged in
-    if not logged_in:
-        messagebox.showerror("Error", "Please log in first!")
-        return
-
-    # Prompt the user to enter the new username
-    new_username = simpledialog.askstring("Change Username", "Enter a new username:")
-    if new_username is None:
-        return
-
-    # Retrieve the current email from the database
-    c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
-    result = c.fetchone()
-    if result is None:
-        messagebox.showerror("Error", "User not found!")
-        return
-    email = result[0]
-
-    # Perform code verification similar to delete_record()
-    verification_code = ''.join(random.choice(string.digits) for _ in range(6))
-
-    # Send the verification code via email
-    send_verification_email(email, verification_code)
-
-    # Prompt the user to enter the verification code
-    entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
-    if entered_code is None:
-        return
-
-    # Check if the entered code matches the verification code
-    if entered_code == verification_code:
-        # Update the username in the database
-        c.execute("UPDATE users SET username = ? WHERE username = ?", (new_username, username_entry.get()))
-        conn.commit()
-
-        # Update the logged-in username
-        username_entry.delete(0, END)
-        username_entry.insert(0, new_username)
-
-        messagebox.showinfo("Success", "Username changed successfully!")
-    else:
-        messagebox.showerror("Error", "Invalid verification code!")
+        messagebox.showerror("Error", "Invalid or expired verification code!")
 
 def change_email():
     # Check if the user is logged in
@@ -748,6 +763,7 @@ def change_email():
 
     # Perform code verification similar to delete_record()
     verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+    verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
 
     # Send the verification code via email
     send_verification_email(email, verification_code)
@@ -757,15 +773,15 @@ def change_email():
     if entered_code is None:
         return
 
-    # Check if the entered code matches the verification code
-    if entered_code == verification_code:
+    # Check if the entered code matches the verification code and is within the expiry time
+    if entered_code == verification_code and time.time() <= verification_code_expiry:
         # Update the email in the database
         c.execute("UPDATE users SET email = ? WHERE username = ?", (new_email, username_entry.get()))
         conn.commit()
 
         messagebox.showinfo("Success", "Email changed successfully!")
     else:
-        messagebox.showerror("Error", "Invalid verification code!")
+        messagebox.showerror("Error", "Invalid or expired verification code!")
 
 
 
