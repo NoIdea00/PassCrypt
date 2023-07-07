@@ -896,10 +896,10 @@ generate_preference_password_entry.pack()
 save_password_button = Button(password_manager_frame, text="Save Password", command=save_password)
 save_password_button.pack()
 
-switch_to_saved_passwords_button = Button(password_manager_frame, text="Switch to Saved Passwords", command=switch_to_saved_passwords)
+switch_to_saved_passwords_button = Button(password_manager_frame, text="Switch to Saved Passwords", command=lambda x: switch_frame(saved_passwords_frame))
 switch_to_saved_passwords_button.pack()
 
-switch_to_settings_button = Button(password_manager_frame, text="Switch to Settings", command=switch_to_settings)
+switch_to_settings_button = Button(password_manager_frame, text="Switch to Settings", command=lambda x: switch_frame(settings_frame))
 switch_to_settings_button.pack()
 
 logout_button = Button(password_manager_frame, text="Logout", command=logout)
@@ -924,7 +924,7 @@ delete_record_button.pack()
 clear_passwords_button = Button(saved_passwords_frame, text="Clear Passwords", command=clear_passwords)
 clear_passwords_button.pack()
 
-switch_to_password_manager_button = Button(saved_passwords_frame, text="Switch to Password Manager", command=switch_to_password_manager)
+switch_to_password_manager_button = Button(saved_passwords_frame, text="Switch to Password Manager", command=lambda x: switch_frame(password_manager_frame))
 switch_to_password_manager_button.pack()
 
 # switch to setting frame
@@ -937,10 +937,10 @@ change_password_button.pack()
 change_email_button = Button(settings_frame, text="Change Email", command=change_email)
 change_email_button.pack()
 
-switch_to_password_manager_button = Button(settings_frame, text="Switch to Password Manager", command=switch_to_password_manager)
+switch_to_password_manager_button = Button(settings_frame, text="Switch to Password Manager", command=lambda x: switch_frame(password_manager_frame))
 switch_to_password_manager_button.pack()
 
-switch_to_saved_passwords_button = Button(settings_frame, text="Switch to Saved Passwords", command=switch_to_saved_passwords)
+switch_to_saved_passwords_button = Button(settings_frame, text="Switch to Saved Passwords", command=lambda x: switch_frame(saved_passwords_frame))
 switch_to_saved_passwords_button.pack()
 
 logout_button = Button(settings_frame, text="Logout", command=logout)
