@@ -1,6 +1,7 @@
 import base64
 import os
 import time
+import sys
 from dotenv import load_dotenv
 from tkinter import *
 from tkinter import messagebox
@@ -63,7 +64,10 @@ root.geometry("500x500")
 root.resizable(False, False)
 root.config(bg="grey")
 
-load_dotenv()
+env_path = ".env"
+if getattr(sys, 'frozen', False):
+    env_path = os.path.join(sys._MEIPASS, ".env")
+load_dotenv(env_path)
 
 
 root_path = __file__
