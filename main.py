@@ -17,6 +17,45 @@ from email.message import EmailMessage
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 
+class ToolTip(object):
+
+    def __init__(self, widget):
+        self.widget = widget
+        self.tip_window = None
+        self.id = None
+        self.x = self.y = 0
+
+    def show_tooltip_win(self, text):
+        "Display text in tooltip window"
+        self.text = text
+        if self.tip_window or not self.text:
+            return
+        x, y, cx, cy = self.widget.bbox("insert")
+        x = x + self.widget.winfo_rootx() + 57
+        y = y + cy + self.widget.winfo_rooty() +27
+        self.tip_window = tip_win = Toplevel(self.widget)
+        tip_win.wm_overrideredirect(1)
+        tip_win.wm_geometry("+%d+%d" % (x, y))
+        label = Label(tip_win, text=self.text, justify=LEFT,
+                      background="#ffffe0", relief=SOLID, borderwidth=1,
+                      font=("tahoma", "8", "normal"))
+        label.pack(ipadx=1)
+
+    def hide_tooltip_win(self):
+        tip_win = self.tip_window
+        self.tip_window = None
+        if tip_win:
+            tip_win.destroy()
+
+def CreateToolTip(widget, text):
+    toolTip = ToolTip(widget)
+    def enter(event):
+        toolTip.show_tooltip_win(text)
+    def leave(event):
+        toolTip.hide_tooltip_win()
+    widget.bind('<Enter>', enter)
+    widget.bind('<Leave>', leave)
+
 # Creating window
 root = Tk()
 root.title("Password Manager")
@@ -295,6 +334,8 @@ def send_verification_email(email, verification_code):
 
 
 def send_files(email, filenames):
+    
+
     # Create a message object
     msg = EmailMessage()
     
@@ -829,12 +870,16 @@ username_label.pack()
 username_entry = Entry(login_frame)
 username_entry.pack()
 
+CreateToolTip(username_entry, text = 'Enter your username')
+
 password_label = Label(login_frame, text="Password:")
 password_label.pack()
 
 # Show * instead of the actual password
 password_entry = Entry(login_frame, show="*")
 password_entry.pack()
+
+CreateToolTip(password_entry, text = 'Enter your password')
 
 login_button = Button(login_frame, text="Login", command=login)
 login_button.pack()
@@ -857,17 +902,23 @@ register_username_label.pack()
 register_username_entry = Entry(register_frame)
 register_username_entry.pack()
 
+CreateToolTip(register_username_entry, text = 'Enter your username')
+
 register_password_label = Label(register_frame, text="Password:")
 register_password_label.pack()
 
 register_password_entry = Entry(register_frame, show="*")
 register_password_entry.pack()
 
+CreateToolTip(register_password_entry, text = 'Enter your password')
+
 register_email_label = Label(register_frame, text="Email:")
 register_email_label.pack()
 
 register_email_entry = Entry(register_frame)
 register_email_entry.pack()
+
+CreateToolTip(register_email_entry, text = 'Enter your email')
 
 register_button = Button(register_frame, text="Register", command=register)
 register_button.pack()
@@ -891,17 +942,22 @@ website_label.pack()
 website_entry = Entry(password_manager_frame)
 website_entry.pack()
 
+CreateToolTip(website_entry, text = 'Enter the website, e.g. google.com')
+
 pm_username_label = Label(password_manager_frame, text="Username:")
 pm_username_label.pack()
 
 pm_username_entry = Entry(password_manager_frame)
 pm_username_entry.pack()
 
+CreateToolTip(pm_username_entry, text = 'Enter your username, e.g. johndoe@example.com or JaneDoe123')
+
 pm_password_label = Label(password_manager_frame, text="Password:")
 pm_password_label.pack()
 
 pm_password_entry = Entry(password_manager_frame, show="*")
 pm_password_entry.pack()
+
 
 generate_password_button = Button(password_manager_frame, text="Generate Password", command=generate_password)
 generate_password_button.pack()
@@ -976,3 +1032,4 @@ password_manager_frame.grid_columnconfigure(0, weight=1)
 # Start the GUI
 root.mainloop()
 
+## commit for Debricked
