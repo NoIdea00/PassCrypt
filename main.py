@@ -136,7 +136,6 @@ password_viewing = False
 def switch_frame(frame):
     clear_entries()
     frame.tkraise()
-    print ("test successful")
 
 def clear_entries():
     register_username_entry.delete(0, END)
@@ -154,6 +153,11 @@ def register():
     username = register_username_entry.get()
     password = register_password_entry.get()
     email = register_email_entry.get()
+
+    # Check if any of the fields are empty
+    if not username or not password or not email:
+        messagebox.showerror("Error", "Please fill in all the fields!")
+        return
 
     # Check if the username is available
     if is_username_available(username):
@@ -792,12 +796,10 @@ def change_email():
     if not logged_in:
         messagebox.showerror("Error", "Please log in first!")
         return
-
     # Prompt the user to enter the new email
     new_email = simpledialog.askstring("Change Email", "Enter a new email:")
     if new_email is None:
         return
-
     # Retrieve the current email from the database
     c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
     result = c.fetchone()
@@ -805,19 +807,15 @@ def change_email():
         messagebox.showerror("Error", "User not found!")
         return
     email = result[0]
-
     # Perform code verification similar to delete_record()
     verification_code = ''.join(random.choice(string.digits) for _ in range(6))
     verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
-
     # Send the verification code via email
     send_verification_email(email, verification_code)
-
     # Prompt the user to enter the verification code
     entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
     if entered_code is None:
         return
-
     # Check if the entered code matches the verification code and is within the expiry time
     if entered_code == verification_code and time.time() <= verification_code_expiry:
         # Update the email in the database
@@ -836,17 +834,21 @@ def clear_passwords():
     password_listbox.delete(0, END)
 
 def switch_to_password_manager():
-    saved_passwords_frame.grid_forget()  
+    saved_passwords_frame.grid_forget()
+    settings_frame.grid_forget()  
     password_manager_frame.grid(row=0, column=0, sticky="nsew")  
     password_manager_frame.tkraise()  
 
     
 def switch_to_saved_passwords():
-    password_manager_frame.grid_forget()  
-    saved_passwords_frame.grid(row=0, column=0, sticky="nsew")  
-    saved_passwords_frame.tkraise()  
+    password_manager_frame.grid_forget()
+    settings_frame.grid_forget()
+    saved_passwords_frame.grid(row=0, column=0, sticky="nsew")
+    saved_passwords_frame.tkraise()
+    
 
 def switch_to_settings():
+    saved_passwords_frame.grid_forget()
     password_manager_frame.grid_forget()  
     settings_frame.grid(row=0, column=0, sticky="nsew")  
     settings_frame.tkraise()
@@ -858,7 +860,7 @@ password_manager_frame = Frame(root)
 saved_passwords_frame = Frame(root)
 settings_frame = Frame(root)
 
-for frame in (login_frame, register_frame, password_manager_frame,settings_frame):
+for frame in (login_frame, register_frame, password_manager_frame,settings_frame,saved_passwords_frame):
     frame.grid(row=0, column=0, sticky="nsew")
 
 root.grid_rowconfigure(0, weight=1)
@@ -1003,6 +1005,9 @@ clear_passwords_button.pack()
 switch_to_password_manager_button = Button(saved_passwords_frame, text="Switch to Password Manager", command=lambda: switch_frame(password_manager_frame))
 switch_to_password_manager_button.pack()
 
+switch_to_settings_button = Button(saved_passwords_frame, text="Switch to Settings", command=lambda: switch_frame(settings_frame))
+switch_to_settings_button.pack()
+
 # switch to setting frame
 change_username_button = Button(settings_frame, text="Change Username", command=change_username)
 change_username_button.pack()
@@ -1018,6 +1023,10 @@ switch_to_password_manager_button.pack()
 
 switch_to_saved_passwords_button = Button(settings_frame, text="Switch to Saved Passwords", command=lambda: switch_frame(saved_passwords_frame))
 switch_to_saved_passwords_button.pack()
+# switch_to_saved_passwords_button = Button(settings_frame, text="Switch to Saved Passwords", command=switch_to_saved_passwords)
+# switch_to_saved_passwords_button.pack()
+
+    
 
 logout_button = Button(settings_frame, text="Logout", command=logout)
 logout_button.pack()
@@ -1036,4 +1045,3 @@ password_manager_frame.grid_columnconfigure(0, weight=1)
 # Start the GUI
 root.mainloop()
 
-## commit for Debricked
