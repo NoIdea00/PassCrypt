@@ -614,22 +614,29 @@ def copy_password():
         messagebox.showerror("Error", "Please select a password to copy!")
 
 
+password_viewing = False
+
 def show_passwords():
+    global password_viewing
+
     if not logged_in:
         messagebox.showerror("Error", "Please log in to access the password manager!")
         return
 
-    # Prompt the user to enter the login password
-    password_prompt = simpledialog.askstring("Password", "Enter your login password:", show="*")
-    if password_prompt is None:
-        password_viewing = False
-        return
+    if not password_viewing:
+        # Prompt the user to enter the login password
+        password_prompt = simpledialog.askstring("Password", "Enter your login password:", show="*")
+        if password_prompt is None:
+            password_viewing = False
+            return
 
-    # Check if the entered password is valid
-    if not check_credentials(username_entry.get(), password_prompt):
-        messagebox.showerror("Error", "Invalid login password!")
-        password_viewing = False
-        return
+        # Check if the entered password is valid
+        if not check_credentials(username_entry.get(), password_prompt):
+            messagebox.showerror("Error", "Invalid login password!")
+            password_viewing = False
+            return
+
+        password_viewing = True
 
     # Show the passwords if the login password is valid
     c.execute("SELECT * FROM password_manager")
@@ -650,6 +657,24 @@ def delete_record():
         messagebox.showerror("Error", "Please log in first!")
         return
 
+    # Prompt the user to enter the current password
+    current_password = simpledialog.askstring("Delete Record", "Enter your current...... password:", show="*")
+    if current_password is None:
+        return
+
+    # Retrieve the current password from the database
+    c.execute("SELECT password FROM users WHERE username = ?", (username_entry.get(),))
+    result = c.fetchone()
+    if result is None:
+        messagebox.showerror("Error", "User not found!")
+        return
+    stored_password = result[0]
+
+    # Check if the entered password matches the current password
+    if not check_credentials(username_entry.get(), current_password):
+        messagebox.showerror("Error", "Invalid password!")
+        return
+
     # Retrieve the selected password record from the listbox
     selected_password = password_listbox.get(password_listbox.curselection())
 
@@ -666,6 +691,8 @@ def delete_record():
 
     # Prompt the user to enter the verification code
     entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
+    if entered_code is None:
+        return
 
     # Check if the entered code matches the verification code and is within the expiry time
     if entered_code == verification_code and time.time() <= verification_code_expiry:
@@ -684,6 +711,8 @@ def delete_record():
     else:
         messagebox.showerror("Error", "Invalid or expired verification code!")
         return
+
+
 
 def change_username():
     # Check if the user is logged in
