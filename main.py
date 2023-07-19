@@ -59,7 +59,7 @@ def CreateToolTip(widget, text):
 
 # Creating window
 root = Tk()
-root.title("Password Manager")
+root.title("PassCrypt Password Manager")
 root.geometry("500x500")
 root.resizable(False, False)
 root.config(bg="grey")
@@ -420,6 +420,8 @@ def logout():
 
     # send db file to email
     prompt_send_db = simpledialog.askstring("Send DB", "Send db file: yes/no")
+    # Convert the user input to lowercase
+    prompt_send_db = prompt_send_db.lower()
     if prompt_send_db == "yes":
         send_files(email, [database_path, key_file_path])
     else:
@@ -658,7 +660,7 @@ def delete_record():
         return
 
     # Prompt the user to enter the current password
-    current_password = simpledialog.askstring("Delete Record", "Enter your current...... password:", show="*")
+    current_password = simpledialog.askstring("Delete Record", "Enter your login password:", show="*")
     if current_password is None:
         return
 
@@ -896,6 +898,9 @@ root.grid_rowconfigure(0, weight=1)
 root.grid_columnconfigure(0, weight=1)
 
 # Login frame
+title_label = Label(login_frame, text="PassCrypt Password Manager",font=("Helvetica", 16, "bold"))
+title_label.pack()
+
 login_label = Label(login_frame, text="Login")
 login_label.pack()
 
@@ -968,7 +973,7 @@ register_email_entry.bind('<Return>', lambda event: register())
 
 
 # Password Manager frame
-manager_label = Label(password_manager_frame, text="Password Manager")
+manager_label = Label(password_manager_frame, text="PassCrypt Password Manager",font=("Helvetica", 16, "bold"))
 manager_label.pack()
 
 website_label = Label(password_manager_frame, text="Website:")
@@ -1016,6 +1021,9 @@ logout_button.pack()
 logout_button.bind('<ButtonRelease-1>', lambda event: switch_frame(login_frame))
 
 # Saved Passwords frame
+manager_label = Label(saved_passwords_frame, text="Saved Password Page",font=("Helvetica", 16, "bold"))
+manager_label.pack()
+
 password_listbox = Listbox(saved_passwords_frame, width=60)
 password_listbox.pack()
 
@@ -1038,6 +1046,9 @@ switch_to_settings_button = Button(saved_passwords_frame, text="Switch to Settin
 switch_to_settings_button.pack()
 
 # switch to setting frame
+manager_label = Label(settings_frame, text="Setting Page",font=("Helvetica", 16, "bold"))
+manager_label.pack()
+
 change_username_button = Button(settings_frame, text="Change Username", command=change_username)
 change_username_button.pack()
 
