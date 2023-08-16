@@ -1,5 +1,9 @@
 import base64
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
 import os
+import re
 import time
 import sys
 from dotenv import load_dotenv
@@ -147,6 +151,10 @@ def clear_entries():
     pm_username_entry.delete(0, END)
     pm_password_entry.delete(0, END)
 
+def is_valid_email(email):
+    # Use a regular expression to validate the email format
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email)
 
 def register():
     # Retrieve username, password, and email from the user
@@ -157,6 +165,11 @@ def register():
     # Check if any of the fields are empty
     if not username or not password or not email:
         messagebox.showerror("Error", "Please fill in all the fields!")
+        return
+
+    # Check if the email is valid
+    if not is_valid_email(email):
+        messagebox.showerror("Error", "Invalid email address format!")
         return
 
     # Check if the username is available
@@ -170,6 +183,7 @@ def register():
             verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
 
             # Send the verification code via email
+            send_registration_email(username, email)
             send_register_verification_email(email, verification_code)
 
             # Prompt the user to enter the verification code
@@ -184,7 +198,6 @@ def register():
                 messagebox.showerror("Error", "Invalid or expired verification code!")
     else:
         messagebox.showerror("Error", "Username is not available! Register another username.")
-
 
 def is_email_registered(email):
     # Implement your logic to check if the email is already registered
@@ -414,20 +427,73 @@ def login():
 def logout():
     global logged_in
     logged_in = False
-    # retrieve user email address
-    c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
-    email = c.fetchone()[0]
 
-    # send db file to email
-    prompt_send_db = simpledialog.askstring("Send DB", "Send db file: yes/no")
-    # Convert the user input to lowercase
-    prompt_send_db = prompt_send_db.lower()
-    if prompt_send_db == "yes":
-        send_files(email, [database_path, key_file_path])
-    else:
-        pass
+    # Check if the user wants to send a backup of the database
+    send_backup = messagebox.askyesno("Send Backup", "Do you want to send a backup of your database to your email?")
+
+    if send_backup:
+        # Retrieve user's email
+        c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
+        email = c.fetchone()[0]
+
+        # Create a backup of the database
+        backup_file = "password_manager_backup.txt"
+        with open(backup_file, "w") as f:
+            c.execute("SELECT * FROM password_manager")
+            password_records = c.fetchall()
+            for record in password_records:
+                website = record[0]
+                username = record[1]
+                encrypted_password = record[2]
+                decrypted_password = decrypt_password(encrypted_password)
+                f.write(f"Website: {website} - Username: {username} - Password: {decrypted_password}\n")
+
+        # Close the backup file before sending the email
+        f.close()
+
+        # Send the email with the backup
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = os.getenv("SMTP_PORT")
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+
+        msg = MIMEMultipart()
+        msg['From'] = smtp_username
+        msg['To'] = email
+        msg['Subject'] = "PassCrypt Password Manager Backup"
+
+        body = "Here is your database backup file from PassCrypt Password Manager."
+        msg.attach(MIMEText(body, 'plain'))
+
+        attachment = open(backup_file, "rb")
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload((attachment).read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', "attachment; filename= " + backup_file)
+        msg.attach(part)
+
+        try:
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.sendmail(smtp_username, email, msg.as_string())
+            server.quit()
+
+            # Display success message and delete the backup file
+            messagebox.showinfo("Backup Sent", "Database backup has been sent successfully!")
+            root.after(3000,lambda:os.remove(backup_file))
+        except Exception as e:
+            # Display error message if backup sending failed
+            messagebox.showerror("Backup Failed", f"Failed to send database backup.\nError: {str(e)}")
+
+    # Clear the username and password fields
+    username_entry.delete(0, END)
+    password_entry.delete(0, END)
+
+    # Switch to the login frame
     switch_frame(login_frame)
-    clear_entries()
+
+
     
 
 def generate_password():
@@ -650,7 +716,15 @@ def show_passwords():
         encrypted_password = record[2]
         password = decrypt_password(encrypted_password)
         password_listbox.insert(END, f"Website: {website} - Username: {username} - Password: {password}")
+
+    # Calculate the maximum width needed for the list box
+    max_width = max(len(password) for password in password_listbox.get(0, "end"))
+    password_listbox.config(width=max_width)
+
+    # Set a timer to clear passwords after a certain time (60 seconds)
     password_listbox.after(60000, clear_passwords)
+
+    
 
 
 def delete_record():
@@ -858,11 +932,12 @@ def change_email():
         messagebox.showerror("Error", "Invalid or expired verification code!")
 
 
-
-
 def clear_passwords():
     password_viewing = False
     password_listbox.delete(0, END)
+
+    max_width = max(len(password) for password in password_listbox.get(0, "end"))
+    password_listbox.config(width=max_width)
 
 def switch_to_password_manager():
     saved_passwords_frame.grid_forget()
@@ -929,6 +1004,8 @@ register_button.pack()
 
 # Bind the <Return> event to the login function
 password_entry.bind('<Return>', lambda event: login())
+username_entry.delete(0, END)
+password_entry.delete(0, END)
 
 login_frame.tkraise()
 
@@ -1024,7 +1101,7 @@ logout_button.bind('<ButtonRelease-1>', lambda event: switch_frame(login_frame))
 manager_label = Label(saved_passwords_frame, text="Saved Password Page",font=("Helvetica", 16, "bold"))
 manager_label.pack()
 
-password_listbox = Listbox(saved_passwords_frame, width=60)
+password_listbox = Listbox(saved_passwords_frame, width=60)  
 password_listbox.pack()
 
 copy_password_button = Button(saved_passwords_frame, text="Copy Password", command=copy_password)
