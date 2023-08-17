@@ -1,3 +1,4 @@
+from tkinter import Tk, Label, Entry, Button, StringVar, Frame, Checkbutton, IntVar
 import base64
 from email import encoders
 from email.mime.base import MIMEBase
@@ -21,6 +22,7 @@ import smtplib
 from email.message import EmailMessage
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
+import secrets
 
 class ToolTip(object):
 
@@ -64,7 +66,7 @@ def CreateToolTip(widget, text):
 # Creating window
 root = Tk()
 root.title("PassCrypt Password Manager")
-root.geometry("500x500")
+root.geometry("700x700")
 root.resizable(False, False)
 root.config(bg="grey")
 
@@ -133,6 +135,9 @@ if key is None:
 logged_in = False
 password_visibility = False
 password_viewing = False
+login_attempts = 0
+login_disabled_until = 0
+last_2fa_request_time = 0
 
 
 # Creating functions
@@ -141,16 +146,7 @@ def switch_frame(frame):
     clear_entries()
     frame.tkraise()
 
-def clear_entries():
-    register_username_entry.delete(0, END)
-    register_password_entry.delete(0, END)
-    register_email_entry.delete(0, END)
-    username_entry.delete(0, END)
-    password_entry.delete(0, END)
-    website_entry.delete(0, END)
-    pm_username_entry.delete(0, END)
-    pm_password_entry.delete(0, END)
-
+ 
 def is_valid_email(email):
     # Use a regular expression to validate the email format
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -183,7 +179,6 @@ def register():
             verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
 
             # Send the verification code via email
-            send_registration_email(username, email)
             send_register_verification_email(email, verification_code)
 
             # Prompt the user to enter the verification code
@@ -194,6 +189,7 @@ def register():
                 # Store the credentials
                 store_credentials(username, password, email)
                 messagebox.showinfo("Success", "User registered successfully!")
+                send_registration_email(username, email)
             else:
                 messagebox.showerror("Error", "Invalid or expired verification code!")
     else:
@@ -220,7 +216,7 @@ def send_registration_email(username, email):
     
     # Compose the email body
     body = f"Dear {username},\n\nThank you for registering on our password manager application!\n\n" \
-           "Your registration was successful.\n\nBest regards,\nThe Password Manager Team"
+           "Your registration was successful.\n\nBest regards,\nThe PassCrypt Team"
     msg.set_content(body)
     
     # Set up the email server
@@ -273,7 +269,7 @@ def send_login_verification_email(email, verification_code):
     msg = EmailMessage()
     
     # Set the subject and recipient
-    msg["Subject"] = "Verification Code"
+    msg["Subject"] = "Login Verification Code"
     msg["To"] = email
     
     # Compose the email body
@@ -302,7 +298,7 @@ def send_delete_verification_email(email, verification_code):
     msg = EmailMessage()
     
     # Set the subject and recipient
-    msg["Subject"] = "Verification Code"
+    msg["Subject"] = "Authorize To Delete Saved Password Verification Code"
     msg["To"] = email
     
     # Compose the email body
@@ -330,7 +326,7 @@ def send_verification_email(email, verification_code):
     msg = EmailMessage()
     
     # Set the subject and recipient
-    msg["Subject"] = "Verification Code"
+    msg["Subject"] = "Account Setting Verification Code"
     msg["To"] = email
     
     # Compose the email body
@@ -353,89 +349,8 @@ def send_verification_email(email, verification_code):
         # Send the email
         server.send_message(msg)
 
-
-def send_files(email, filenames):
-    
-
-    # Create a message object
-    msg = EmailMessage()
-    
-    # Set the subject and recipient
-    msg["Subject"] = "Verification Code"
-    msg["To"] = email
-    
-    # Compose the email body
-    body = f"Attached is the db and key file"
-    msg.set_content(body)
-
-    for file in filenames:
-        with open(file, "rb") as f:
-            file_data = f.read()
-            file_name = f.name
-
-        msg.add_attachment(file_data, maintype="application", subtype="octet-stream", filename=file_name)
-    
-    # Set up the email server
-    smtp_server = os.getenv("SMTP_SERVER")
-    smtp_port = int(os.getenv("SMTP_PORT"))
-    smtp_username = os.getenv("SMTP_USERNAME")
-    smtp_password = os.getenv("SMTP_PASSWORD")
-    
-    # Connect to the email server
-    with smtplib.SMTP(smtp_server, smtp_port) as server:
-        server.starttls()
-        server.login(smtp_username, smtp_password)
-        
-        # Send the email
-        server.send_message(msg)
-
-
-def login():
-    # Retrieve username and password from the user
-    username = username_entry.get()
-    password = password_entry.get()
-
-    # Check if the credentials are valid
-    if check_credentials(username, password):
-        # Generate a verification code and its expiry timestamp
-        verification_code = ''.join(random.choice(string.digits) for _ in range(6))
-        verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
-        
-        # Retrieve the user's email
-        c.execute("SELECT email FROM users WHERE username = ?", (username,))
-        email = c.fetchone()[0]
-        
-        # Send the verification code via email
-        send_login_verification_email(email, verification_code)
-        
-        # Prompt the user to enter the verification code
-        entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
-        
-        # Check the validity of the verification code
-        if entered_code == verification_code and time.time() <= verification_code_expiry:
-            global logged_in
-            logged_in = True
-            
-            switch_frame(password_manager_frame)
-            clear_entries()
-        else:
-            messagebox.showerror("Error", "Invalid or expired verification code!")
-    else:
-        messagebox.showerror("Error", "Invalid credentials!")
-
-
-def logout():
-    global logged_in
-    logged_in = False
-
-    # Check if the user wants to send a backup of the database
-    send_backup = messagebox.askyesno("Send Backup", "Do you want to send a backup of your database to your email?")
-
-    if send_backup:
-        # Retrieve user's email
-        c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
-        email = c.fetchone()[0]
-
+def send_database_backup(email):
+    try:
         # Create a backup of the database
         backup_file = "password_manager_backup.txt"
         with open(backup_file, "w") as f:
@@ -451,7 +366,7 @@ def logout():
         # Close the backup file before sending the email
         f.close()
 
-        # Send the email with the backup
+        # Set up the email message
         smtp_server = os.getenv("SMTP_SERVER")
         smtp_port = os.getenv("SMTP_PORT")
         smtp_username = os.getenv("SMTP_USERNAME")
@@ -462,7 +377,7 @@ def logout():
         msg['To'] = email
         msg['Subject'] = "PassCrypt Password Manager Backup"
 
-        body = "Here is your database backup file from PassCrypt Password Manager."
+        body = "Here is your backup file from PassCrypt Password Manager."
         msg.attach(MIMEText(body, 'plain'))
 
         attachment = open(backup_file, "rb")
@@ -472,19 +387,290 @@ def logout():
         part.add_header('Content-Disposition', "attachment; filename= " + backup_file)
         msg.attach(part)
 
-        try:
-            server = smtplib.SMTP(smtp_server, smtp_port)
+        # Send the email
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls()
             server.login(smtp_username, smtp_password)
             server.sendmail(smtp_username, email, msg.as_string())
-            server.quit()
+            
+        # Display success message and delete the backup file
+        messagebox.showinfo("Backup Sent", "Database backup has been sent successfully!")
+        root.after(3000,lambda:os.remove(backup_file))
+    except Exception as e:
+        # Display error message if backup sending failed
+        messagebox.showerror("Backup Failed", f"Failed to send database backup.\nError: {str(e)}")
 
-            # Display success message and delete the backup file
-            messagebox.showinfo("Backup Sent", "Database backup has been sent successfully!")
-            root.after(3000,lambda:os.remove(backup_file))
-        except Exception as e:
-            # Display error message if backup sending failed
-            messagebox.showerror("Backup Failed", f"Failed to send database backup.\nError: {str(e)}")
+def send_reset_email(email, reset_code):
+    # Create a message object
+    msg = EmailMessage()
+    
+    # Set the subject and recipient
+    msg["Subject"] = "Reset Code"
+    msg["To"] = email
+    
+    # Compose the email body
+    body = f"Your reset code is: {reset_code}\n\n" \
+           "Please use the above code within 5 minutes to reset your password."
+    msg.set_content(body)
+    
+    # Set up the email server
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = int(os.getenv("SMTP_PORT"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    
+    # Connect to the email server
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        
+        # Send the email
+        server.send_message(msg)
+   
+def send_reset_password_success_email(email):
+    # Create a message object
+    msg = EmailMessage()
+    
+    # Set the subject and recipient
+    msg["Subject"] = "Password Reset Successful"
+    msg["To"] = email
+    
+    # Compose the email body
+    body = f"Your password has been reset successfully!\n\n" \
+           "If you did not request this, please change your password immediately."
+    msg.set_content(body)
+    
+    # Set up the email server
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = int(os.getenv("SMTP_PORT"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    
+    # Connect to the email server
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        
+        # Send the email
+        server.send_message(msg)
+
+def generate_reset_code():
+    reset_code_length = 8  # Set the desired length of the reset code
+    reset_code_characters = string.ascii_letters + string.digits
+    reset_code = ''.join(secrets.choice(reset_code_characters) for _ in range(reset_code_length))
+    return reset_code
+
+def update_password(username, new_password):
+    # Encrypt the new password
+    encrypted_new_password = encrypt_password(new_password)
+    
+    # Update the password in the database
+    c.execute("UPDATE users SET password = ? WHERE username = ?", (encrypted_new_password, username))
+    conn.commit()
+
+
+
+# def login():
+#     global logged_in, login_attempts, login_disabled_until, current_username, current_email
+
+#     # Disable the login button if too many attempts have been made
+#     if login_attempts >= 3:
+#         if time.time() < login_disabled_until:
+#             remaining_time = int(login_disabled_until - time.time())
+#             messagebox.showerror("Error", f"Too many login attempts. Try again in {remaining_time} seconds.")
+#             return
+
+#     username = username_entry.get()
+#     password = password_entry.get()
+
+#     # Check if username and password fields are not empty
+#     if not username or not password:
+#         messagebox.showerror("Error", "Please enter both username and password.")
+#         return
+
+#     if check_credentials(username, password):
+#         # Generate a verification code and its expiry timestamp
+#         verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+#         verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
+        
+#         # Retrieve the user's email
+#         c.execute("SELECT email FROM users WHERE username = ?", (username,))
+#         email = c.fetchone()[0]  # Assign the email value here
+        
+#         # Send the verification code via email
+#         send_login_verification_email(email, verification_code)
+        
+#         # Prompt the user to enter the verification code
+#         entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
+        
+#         # Check the validity of the verification code
+#         if entered_code == verification_code and time.time() <= verification_code_expiry:
+#             logged_in = True
+            
+#             # Store the current username and email
+#             current_username = username
+#             current_email = email
+
+#             # Update the user info in the Settings frame
+#             update_user_info(current_username, current_email)
+            
+#             switch_frame(password_manager_frame)
+#             clear_entries()
+#         else:
+#             messagebox.showerror("Error", "Invalid or expired verification code!")
+#     else:
+#         login_attempts += 1
+
+#         if login_attempts >= 3:
+#             login_disabled_until = time.time() + 5  # Disable login for 5 seconds
+#             login_attempts = 0  # Reset login attempts
+            
+#             messagebox.showerror("Error", "Too many login attempts. Try again in 5 seconds.")
+#             login_button.config(state="disabled")
+#             username_entry.config(state="disabled")
+#             password_entry.config(state="disabled")
+
+#             # Re-enable the login button after 5 seconds
+#             root.after(5000, enable_login_button)
+
+#         else:
+#             messagebox.showerror("Error", "Invalid username or password.")
+
+def login():
+    global logged_in, login_attempts, login_disabled_until, current_username, current_email
+
+    # Disable the login button if too many attempts have been made
+    if login_attempts >= 3:
+        if time.time() < login_disabled_until:
+            remaining_time = int(login_disabled_until - time.time())
+            messagebox.showerror("Error", f"Too many login attempts. Try again in {remaining_time} seconds.")
+            return
+
+    username = username_entry.get()
+    password = password_entry.get()
+
+    # Check if username and password fields are not empty
+    if not username or not password:
+        messagebox.showerror("Error", "Please enter both username and password.")
+        return
+
+    if check_credentials(username, password):
+        logged_in = True
+
+        # Store the current username and email
+        current_username = username
+        current_email = None  # Remove the email assignment
+
+        # Update the user info in the Settings frame
+        update_user_info(current_username, current_email)
+        
+        switch_frame(password_manager_frame)
+        clear_entries()
+    else:
+        login_attempts += 1
+
+        if login_attempts >= 3:
+            login_disabled_until = time.time() + 5  # Disable login for 5 seconds
+            login_attempts = 0  # Reset login attempts
+            
+            messagebox.showerror("Error", "Too many login attempts. Try again in 5 seconds.")
+            login_button.config(state="disabled")
+            username_entry.config(state="disabled")
+            password_entry.config(state="disabled")
+
+            # Re-enable the login button after 5 seconds
+            root.after(5000, enable_login_button)
+
+        else:
+            messagebox.showerror("Error", "Invalid username or password.")
+
+
+
+def enable_login_button():
+    login_button.config(state="normal")
+    username_entry.config(state="normal")
+    password_entry.config(state="normal")
+    login_attempts = 0  
+
+def update_user_info(username, email):
+    user_info_label.config(text=f"Current Logged In Username: {username}\nCurrent Logged In Email: {email}")
+
+
+def clear_login_fields():
+    username_entry.delete(0, END)
+    password_entry.delete(0, END)
+
+def forgot_password():
+    # Prompt the user to enter their email
+    email = simpledialog.askstring("Forgot Password", "Enter your email:")
+    if email is None:
+        return
+
+    # Check if the email is valid
+    c.execute("SELECT email FROM users WHERE email = ?", (email,))
+    result = c.fetchone()
+    if result is None:
+        messagebox.showerror("Error", "Email not found!")
+        return
+
+    # Generate a reset code
+    reset_code = generate_reset_code()
+
+    # Send the reset code via email
+    send_reset_email(email, reset_code)
+
+    # Prompt the user to enter the received reset code
+    entered_reset_code = simpledialog.askstring("Forgot Password", "Enter the reset code:")
+    if entered_reset_code is None:
+        return
+
+    # Check if the entered reset code matches the generated reset code
+    if entered_reset_code != reset_code:
+        messagebox.showerror("Error", "Invalid reset code!")
+        return
+
+    # Prompt the user to enter a new password
+    new_password = simpledialog.askstring("Forgot Password", "Enter a new password:", show="*")
+    if new_password is None:
+        return
+
+    # Prompt the user to confirm the new password
+    confirm_new_password = simpledialog.askstring("Forgot Password", "Confirm the new password:", show="*")
+    if confirm_new_password is None:
+        return
+
+    # Check if the new password and confirmation match
+    if new_password != confirm_new_password:
+        messagebox.showerror("Error", "Passwords do not match!")
+        return
+
+    # Update the password in the database
+    c.execute("UPDATE users SET password = ? WHERE email = ?", (encrypt_password(new_password), email))
+    conn.commit()
+    messagebox.showinfo("Success", "Password reset successfully!")
+    send_reset_password_success_email(email)
+
+
+def is_valid_email(email):
+    # Implement a validation check for email format
+    return "@" in email and "." in email
+
+
+
+def logout():
+    global logged_in
+    logged_in = False
+
+    # Check if the user wants to send a backup of the database
+    send_backup = messagebox.askyesno("Send Backup", "Do you want to send a backup of your database to your email?")
+
+    if send_backup:
+        # Retrieve user's email
+        c.execute("SELECT email FROM users WHERE username = ?", (username_entry.get(),))
+        email = c.fetchone()[0]
+
+        # Send the database backup to the user's email
+        send_database_backup(email)
 
     # Clear the username and password fields
     username_entry.delete(0, END)
@@ -493,20 +679,17 @@ def logout():
     # Switch to the login frame
     switch_frame(login_frame)
 
-
-    
-
 def generate_password():
     # Generate a random password with a combination of letters, digits, and special characters
-    password_length = 16  # Set the desired length of the password
+    password_length = random.randint(8, 16)  # Generate a random password length between 8 and 16
     password_characters = string.ascii_letters + string.digits + string.punctuation
     password = ''.join(random.choice(password_characters) for _ in range(password_length))
 
-
     # Insert the generated password into the password entry field
+    pm_password_entry.config(state="normal")  # Enable the entry field to modify its content
     pm_password_entry.delete(0, END)
     pm_password_entry.insert(0, password)
-
+    pm_password_entry.config(state="readonly")  # Set the entry field back to read-only
 
 def generate_preference_password():
     # Prompt the user to enter password length
@@ -524,40 +707,29 @@ def generate_preference_password():
         # Split the additional keywords by comma and remove any leading/trailing spaces
         keywords = [keyword.strip() for keyword in additional_keywords.split(",")]
 
-        # Generate a random password with alphanumeric characters and symbols
-        password_characters = string.ascii_letters + string.digits + string.punctuation
+        # Generate a random password with alphanumeric characters
+        password_characters = string.ascii_letters + string.digits
+        password_length -= len(''.join(keywords))
         password = ''.join(random.choice(password_characters) for _ in range(password_length))
 
-        # Calculate the remaining length after inserting the keyword string
-        remaining_length = password_length - len(keywords)
-
-        if remaining_length <= 0:
-            messagebox.showerror("Error", "Password length is too short for the additional keywords!")
-            return
-
-        # Create a list to hold the password characters
-        password_list = list(password)
-
         # Insert the keywords randomly within the password
+        password_list = list(password)
         for keyword in keywords:
-            random_index = random.randint(0, remaining_length)
+            random_index = random.randint(0, len(password_list))
             password_list.insert(random_index, keyword)
-            remaining_length -= 1
 
         # Convert the password list back to a string
         password = ''.join(password_list)
     else:
-        # Generate a random password with alphanumeric characters and symbols
-        password_characters = string.ascii_letters + string.digits + string.punctuation
+        # Generate a random password with alphanumeric characters
+        password_characters = string.ascii_letters + string.digits
         password = ''.join(random.choice(password_characters) for _ in range(password_length))
 
     # Insert the generated password into the password entry field
+    pm_password_entry.config(state="normal")  # Enable the entry field to modify its content
     pm_password_entry.delete(0, END)
     pm_password_entry.insert(0, password)
-
-
-
-
+    pm_password_entry.config(state="readonly")  # Set the entry field back to read-only
 
 def check_credentials(username, password):
     # Implement your logic to check if the credentials are valid
@@ -660,10 +832,25 @@ def save_password():
         clear_entries()
 
 
+
 def clear_entries():
+    register_username_entry.delete(0, END)
+    register_password_entry.delete(0, END)
+    register_email_entry.delete(0, END)
     website_entry.delete(0, END)
     pm_username_entry.delete(0, END)
+    pm_password_entry.config(state="normal")
     pm_password_entry.delete(0, END)
+    pm_password_entry.config(state="readonly")
+    
+def copy_generate_password():
+    password = pm_password_entry.get()
+    if password:
+        pyperclip.copy(password)
+        messagebox.showinfo("Copy Password", "Password copied to clipboard!")
+
+
+
 
 
 def copy_password():
@@ -835,6 +1022,7 @@ def change_username():
     else:
         messagebox.showerror("Error", "Invalid or expired verification code!")
         return
+    update_user_info(new_username, current_email)
 
 def change_password():
     # Check if the user is logged in
@@ -895,6 +1083,8 @@ def change_password():
         messagebox.showinfo("Success", "Password changed successfully!")
     else:
         messagebox.showerror("Error", "Invalid or expired verification code!")
+        return
+    update_user_info(username_entry.get(), current_email)
 
 def change_email():
     # Check if the user is logged in
@@ -930,20 +1120,33 @@ def change_email():
         messagebox.showinfo("Success", "Email changed successfully!")
     else:
         messagebox.showerror("Error", "Invalid or expired verification code!")
+        return
+    update_user_info(username_entry.get(),current_email)
 
+def toggle_password_visibility():
+    if show_password_var.get() == 1:
+        pm_password_entry.config(show="")
+        root.after(10000, lambda: show_password_var.set(0))
+        root.after(10000, lambda: pm_password_entry.config(show="*"))
+    else:
+        pm_password_entry.config(show="*")
 
 def clear_passwords():
     password_viewing = False
     password_listbox.delete(0, END)
+    
+    if password_listbox.size() > 0:
+        max_width = max(len(password) for password in password_listbox.get(0, "end"))
+        password_listbox.config(width=max_width)
 
-    max_width = max(len(password) for password in password_listbox.get(0, "end"))
-    password_listbox.config(width=max_width)
+    
 
 def switch_to_password_manager():
     saved_passwords_frame.grid_forget()
     settings_frame.grid_forget()  
     password_manager_frame.grid(row=0, column=0, sticky="nsew")  
-    password_manager_frame.tkraise()  
+    password_manager_frame.tkraise()
+
 
     
 def switch_to_saved_passwords():
@@ -973,34 +1176,53 @@ root.grid_rowconfigure(0, weight=1)
 root.grid_columnconfigure(0, weight=1)
 
 # Login frame
-title_label = Label(login_frame, text="PassCrypt Password Manager",font=("Helvetica", 16, "bold"))
-title_label.pack()
+title_label = Label(login_frame, text="PassCrypt Password Manager", font=("Helvetica", 16, "bold"))
+title_label.pack(pady=10)
 
-login_label = Label(login_frame, text="Login")
+login_label = Label(login_frame, text="Login", font=("Helvetica", 12, "bold"))
 login_label.pack()
 
-username_label = Label(login_frame, text="Username:")
-username_label.pack()
+# Username and Password Entry
+entry_frame = Frame(login_frame)
+entry_frame.pack(pady=10)
 
-username_entry = Entry(login_frame)
-username_entry.pack()
+username_frame = Frame(entry_frame)
+username_frame.pack(side="left", padx=10)
 
-CreateToolTip(username_entry, text = 'Enter your username')
+username_label = Label(username_frame, text="Username:")
+username_label.pack(side="left")
 
-password_label = Label(login_frame, text="Password:")
-password_label.pack()
+username_entry = Entry(username_frame)
+username_entry.pack(side="left")
+
+CreateToolTip(username_entry, text='Enter your username')
+
+password_frame = Frame(entry_frame)
+password_frame.pack(side="left", padx=10)
+
+password_label = Label(password_frame, text="Password:")
+password_label.pack(side="left")
 
 # Show * instead of the actual password
-password_entry = Entry(login_frame, show="*")
-password_entry.pack()
+password_entry = Entry(password_frame, show="*")
+password_entry.pack(side="left")
 
-CreateToolTip(password_entry, text = 'Enter your password')
+CreateToolTip(password_entry, text='Enter your password')
 
+# Login Button
 login_button = Button(login_frame, text="Login", command=login)
-login_button.pack()
+login_button.pack(pady=20)  # Slightly increased padding
 
-register_button = Button(login_frame, text="Register", command=lambda: switch_frame(register_frame))
-register_button.pack()
+# Register and Forgot Password Buttons
+buttons_frame = Frame(login_frame)
+buttons_frame.pack()
+
+register_button = Button(buttons_frame, text="Register", command=lambda: switch_frame(register_frame))
+register_button.pack(side="left", padx=10)
+
+forgot_password_button = Button(buttons_frame, text="Forgot Password", command=forgot_password)
+forgot_password_button.pack(side="left", padx=10, pady=5)  # Added padding
+
 
 # Bind the <Return> event to the login function
 password_entry.bind('<Return>', lambda event: login())
@@ -1010,38 +1232,53 @@ password_entry.delete(0, END)
 login_frame.tkraise()
 
 # Register frame
-register_label = Label(register_frame, text="Register")
-register_label.pack()
+register_label = Label(register_frame, text="Register", font=("Helvetica", 16, "bold"))
+register_label.pack(pady=20)
 
-register_username_label = Label(register_frame, text="Username:")
-register_username_label.pack()
+# Username Entry
+register_username_frame = Frame(register_frame)
+register_username_frame.pack(pady=10)
 
-register_username_entry = Entry(register_frame)
-register_username_entry.pack()
+register_username_label = Label(register_username_frame, text="Username:")
+register_username_label.pack(side="left", padx=10)
 
-CreateToolTip(register_username_entry, text = 'Enter your username')
+register_username_entry = Entry(register_username_frame)
+register_username_entry.pack(side="left")
 
-register_password_label = Label(register_frame, text="Password:")
-register_password_label.pack()
+CreateToolTip(register_username_entry, text='Enter your username')
 
-register_password_entry = Entry(register_frame, show="*")
-register_password_entry.pack()
+# Password Entry
+register_password_frame = Frame(register_frame)
+register_password_frame.pack(pady=10)
 
-CreateToolTip(register_password_entry, text = 'Enter your password')
+register_password_label = Label(register_password_frame, text="Password:")
+register_password_label.pack(side="left", padx=10)
 
-register_email_label = Label(register_frame, text="Email:")
-register_email_label.pack()
+register_password_entry = Entry(register_password_frame, show="*")
+register_password_entry.pack(side="left")
 
-register_email_entry = Entry(register_frame)
-register_email_entry.pack()
+CreateToolTip(register_password_entry, text='Enter your password')
 
-CreateToolTip(register_email_entry, text = 'Enter your email')
+# Email Entry
+register_email_frame = Frame(register_frame)
+register_email_frame.pack(pady=10)
 
+register_email_label = Label(register_email_frame, text="Email:")
+register_email_label.pack(side="left", padx=20)
+
+register_email_entry = Entry(register_email_frame)
+register_email_entry.pack(side="left")
+
+CreateToolTip(register_email_entry, text='Enter your email')
+
+# Register Button
 register_button = Button(register_frame, text="Register", command=register)
-register_button.pack()
+register_button.pack(pady=15)
 
+# Back to Login Button
 login_button = Button(register_frame, text="Back to Login", command=lambda: switch_frame(login_frame))
 login_button.pack()
+
 
 # Bind the <Return> event to the register function
 register_username_entry.bind('<Return>', lambda event: register())
@@ -1050,103 +1287,169 @@ register_email_entry.bind('<Return>', lambda event: register())
 
 
 # Password Manager frame
-manager_label = Label(password_manager_frame, text="PassCrypt Password Manager",font=("Helvetica", 16, "bold"))
-manager_label.pack()
+manager_label = Label(password_manager_frame, text="PassCrypt Password Manager", font=("Helvetica", 16, "bold"))
+manager_label.pack(pady=10)
 
-website_label = Label(password_manager_frame, text="Website:")
-website_label.pack()
+# Website Entry
+website_frame = Frame(password_manager_frame)
+website_frame.pack(pady=5)
 
-website_entry = Entry(password_manager_frame)
-website_entry.pack()
+website_label = Label(website_frame, text="Website Name:")
+website_label.pack(side="left", padx=0)
 
-CreateToolTip(website_entry, text = 'Enter the website, e.g. google.com')
+website_entry = Entry(website_frame)
+website_entry.pack(side="left")
 
-pm_username_label = Label(password_manager_frame, text="Username:")
-pm_username_label.pack()
+CreateToolTip(website_entry, text='Enter the website, e.g. google.com')
 
-pm_username_entry = Entry(password_manager_frame)
-pm_username_entry.pack()
+# Username Entry
+pm_username_frame = Frame(password_manager_frame)
+pm_username_frame.pack(pady=5)
 
-CreateToolTip(pm_username_entry, text = 'Enter your username, e.g. johndoe@example.com or JaneDoe123')
+pm_username_label = Label(pm_username_frame, text="Username:")
+pm_username_label.pack(side="left", padx=12)
 
-pm_password_label = Label(password_manager_frame, text="Password:")
-pm_password_label.pack()
+pm_username_entry = Entry(pm_username_frame)
+pm_username_entry.pack(side="left")
 
-pm_password_entry = Entry(password_manager_frame, show="*")
-pm_password_entry.pack()
+CreateToolTip(pm_username_entry, text='Enter your username, e.g. johndoe@example.com or JaneDoe123')
 
+# Password Entry
+pm_password_frame = Frame(password_manager_frame)
+pm_password_frame.pack(pady=5)
 
-generate_password_button = Button(password_manager_frame, text="Generate Password", command=generate_password)
-generate_password_button.pack()
+pm_password_label = Label(pm_password_frame, text="Password:")
+pm_password_label.pack(side="left", padx=14)
 
-generate_preference_password_entry = Button(password_manager_frame, text="Generate Preference Password", command=generate_preference_password)
-generate_preference_password_entry.pack()
+pm_password_entry = Entry(pm_password_frame, show="*", textvariable=password_label, state="readonly")
+pm_password_entry.pack(side="left")
 
-save_password_button = Button(password_manager_frame, text="Save Password", command=save_password)
-save_password_button.pack()
+show_password_var = IntVar()
+show_password_checkbox = Checkbutton(password_manager_frame, text="Show Password", variable=show_password_var, command=toggle_password_visibility)
+show_password_checkbox.pack()
 
-switch_to_saved_passwords_button = Button(password_manager_frame, text="Switch to Saved Passwords", command=lambda: switch_frame(saved_passwords_frame))
-switch_to_saved_passwords_button.pack()
+# Buttons - First Row
+button_frame = Frame(password_manager_frame)
+button_frame.pack(pady=10)
 
-switch_to_settings_button = Button(password_manager_frame, text="Switch to Settings", command=lambda: switch_frame(settings_frame))
-switch_to_settings_button.pack()
+copy_password_button = Button(button_frame, text="Copy Password", command=copy_generate_password)
+copy_password_button.pack(side="left", padx=5)
 
-logout_button = Button(password_manager_frame, text="Logout", command=logout)
-logout_button.pack()
+# Buttons - Second Row
+generate_button_frame = Frame(password_manager_frame)
+generate_button_frame.pack()
+
+generate_password_button = Button(generate_button_frame, text="Generate Password", command=generate_password)
+generate_password_button.pack(side="left", padx=5)
+
+generate_preference_password_entry = Button(generate_button_frame, text="Generate Preference Password", command=generate_preference_password)
+generate_preference_password_entry.pack(side="left", padx=5)
+
+# Buttons - Third Row
+save_nav_button_frame = Frame(password_manager_frame)
+save_nav_button_frame.pack(pady=10)
+
+save_password_button = Button(save_nav_button_frame, text="Save Password", command=save_password)
+save_password_button.pack(side="left", padx=5)
+
+switch_to_saved_passwords_button = Button(save_nav_button_frame, text="Switch to Saved Passwords", command=lambda: switch_frame(saved_passwords_frame))
+switch_to_saved_passwords_button.pack(side="left", padx=5)
+
+switch_to_settings_button = Button(save_nav_button_frame, text="Switch to Settings", command=lambda: switch_frame(settings_frame))
+switch_to_settings_button.pack(side="left", padx=5)
+
+# Button - Fourth Row
+logout_frame = Frame(password_manager_frame)
+logout_frame.pack(pady=10)
+
+logout_button = Button(logout_frame, text="Logout", command=logout)
+logout_button.pack(side="right", padx=5)  # Move to the fourth row
 
 # Switch to the login frame after logout
 logout_button.bind('<ButtonRelease-1>', lambda event: switch_frame(login_frame))
 
 # Saved Passwords frame
-manager_label = Label(saved_passwords_frame, text="Saved Password Page",font=("Helvetica", 16, "bold"))
-manager_label.pack()
+manager_label = Label(saved_passwords_frame, text="Saved Password Page", font=("Helvetica", 16, "bold"))
+manager_label.pack(pady=10)
 
-password_listbox = Listbox(saved_passwords_frame, width=60)  
-password_listbox.pack()
+# Password Listbox
+password_listbox = Listbox(saved_passwords_frame, width=60)
+password_listbox.pack(pady=10)
 
-copy_password_button = Button(saved_passwords_frame, text="Copy Password", command=copy_password)
-copy_password_button.pack()
+# Buttons Frame
+buttons_frame = Frame(saved_passwords_frame)
+buttons_frame.pack(pady=15)
 
-show_passwords_button = Button(saved_passwords_frame, text="Show Passwords", command=show_passwords)
-show_passwords_button.pack()
+# Buttons - First Row
+copy_password_button = Button(buttons_frame, text="Copy Password", command=copy_password)
+copy_password_button.grid(row=0, column=0, padx=5, pady=10)  # Increased pady
 
-delete_record_button = Button(saved_passwords_frame, text="Delete Record", command=delete_record)
-delete_record_button.pack()
+show_passwords_button = Button(buttons_frame, text="Show Passwords", command=show_passwords)
+show_passwords_button.grid(row=0, column=1, padx=5, pady=10)  # Increased pady
 
-clear_passwords_button = Button(saved_passwords_frame, text="Clear Passwords", command=clear_passwords)
-clear_passwords_button.pack()
+delete_record_button = Button(buttons_frame, text="Delete Record", command=delete_record)
+delete_record_button.grid(row=0, column=2, padx=5, pady=10)  # Increased pady
 
-switch_to_password_manager_button = Button(saved_passwords_frame, text="Switch to Password Manager", command=lambda: switch_frame(password_manager_frame))
-switch_to_password_manager_button.pack()
+# Gap between rows
+buttons_frame.grid_rowconfigure(1, minsize=20)  # Create a bigger gap
+buttons_frame.grid_rowconfigure(2, minsize=20)  # Create the same gap as between the first and second rows
 
-switch_to_settings_button = Button(saved_passwords_frame, text="Switch to Settings", command=lambda: switch_frame(settings_frame))
-switch_to_settings_button.pack()
+# Buttons - Second Row
+clear_passwords_button = Button(buttons_frame, text="Clear Passwords", command=clear_passwords)
+clear_passwords_button.grid(row=2, column=0, padx=5)
 
-# switch to setting frame
-manager_label = Label(settings_frame, text="Setting Page",font=("Helvetica", 16, "bold"))
-manager_label.pack()
+switch_to_password_manager_button = Button(buttons_frame, text="Switch to Password Manager", command=lambda: switch_frame(password_manager_frame))
+switch_to_password_manager_button.grid(row=2, column=1, padx=5)
 
-change_username_button = Button(settings_frame, text="Change Username", command=change_username)
-change_username_button.pack()
+switch_to_settings_button = Button(buttons_frame, text="Switch to Settings", command=lambda: switch_frame(settings_frame))
+switch_to_settings_button.grid(row=2, column=2, padx=5)
 
-change_password_button = Button(settings_frame, text="Change Password", command=change_password)
-change_password_button.pack()
+# Buttons - Third Row (Logout)
+logout_button = Button(buttons_frame, text="Logout", command=logout)
+logout_button.grid(row=3, columnspan=3, pady=10)
 
-change_email_button = Button(settings_frame, text="Change Email", command=change_email)
-change_email_button.pack()
+# Logout Button Binding (Switch to the login frame after logout)
+logout_button.bind('<ButtonRelease-1>', lambda event: switch_frame(login_frame))
 
-switch_to_password_manager_button = Button(settings_frame, text="Switch to Password Manager", command=lambda: switch_frame(password_manager_frame))
-switch_to_password_manager_button.pack()
+# Settings frame
+manager_label = Label(settings_frame, text="Setting Page", font=("Helvetica", 16, "bold"))
+manager_label.pack(pady=10)
 
-switch_to_saved_passwords_button = Button(settings_frame, text="Switch to Saved Passwords", command=lambda: switch_frame(saved_passwords_frame))
-switch_to_saved_passwords_button.pack()
-# switch_to_saved_passwords_button = Button(settings_frame, text="Switch to Saved Passwords", command=switch_to_saved_passwords)
-# switch_to_saved_passwords_button.pack()
+# Black frame for user info label
+user_info_frame = Frame(settings_frame, bg="black")
+user_info_frame.pack()
 
-    
+# Label to Display Current Logged In User Info
+user_info_label = Label(user_info_frame, text="", font=("Helvetica", 14), bg="dark grey", fg="blue")
+user_info_label.pack()
 
+# Buttons Frame - First Row
+button_frame_1 = Frame(settings_frame)
+button_frame_1.pack(pady=10)
+
+change_username_button = Button(button_frame_1, text="Change Username", command=change_username)
+change_username_button.pack(side="left", padx=5)
+
+change_password_button = Button(button_frame_1, text="Change Password", command=change_password)
+change_password_button.pack(side="left", padx=5)
+
+change_email_button = Button(button_frame_1, text="Change Email", command=change_email)
+change_email_button.pack(side="left", padx=5)
+
+# Buttons Frame - Second Row
+button_frame_2 = Frame(settings_frame)
+button_frame_2.pack(pady=10)
+
+switch_to_password_manager_button = Button(button_frame_2, text="Switch to Password Manager", command=lambda: switch_frame(password_manager_frame))
+switch_to_password_manager_button.pack(side="left", padx=5)
+
+switch_to_saved_passwords_button = Button(button_frame_2, text="Switch to Saved Passwords", command=lambda: switch_frame(saved_passwords_frame))
+switch_to_saved_passwords_button.pack(side="left", padx=5)
+
+# Logout Button - Third Row
 logout_button = Button(settings_frame, text="Logout", command=logout)
-logout_button.pack()
+logout_button.pack(pady=10)
+
 
 
 # Bind the <Return> event to the save_password function
