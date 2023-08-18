@@ -470,72 +470,6 @@ def update_password(username, new_password):
 
 
 
-# def login():
-#     global logged_in, login_attempts, login_disabled_until, current_username, current_email
-
-#     # Disable the login button if too many attempts have been made
-#     if login_attempts >= 3:
-#         if time.time() < login_disabled_until:
-#             remaining_time = int(login_disabled_until - time.time())
-#             messagebox.showerror("Error", f"Too many login attempts. Try again in {remaining_time} seconds.")
-#             return
-
-#     username = username_entry.get()
-#     password = password_entry.get()
-
-#     # Check if username and password fields are not empty
-#     if not username or not password:
-#         messagebox.showerror("Error", "Please enter both username and password.")
-#         return
-
-#     if check_credentials(username, password):
-#         # Generate a verification code and its expiry timestamp
-#         verification_code = ''.join(random.choice(string.digits) for _ in range(6))
-#         verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
-        
-#         # Retrieve the user's email
-#         c.execute("SELECT email FROM users WHERE username = ?", (username,))
-#         email = c.fetchone()[0]  # Assign the email value here
-        
-#         # Send the verification code via email
-#         send_login_verification_email(email, verification_code)
-        
-#         # Prompt the user to enter the verification code
-#         entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
-        
-#         # Check the validity of the verification code
-#         if entered_code == verification_code and time.time() <= verification_code_expiry:
-#             logged_in = True
-            
-#             # Store the current username and email
-#             current_username = username
-#             current_email = email
-
-#             # Update the user info in the Settings frame
-#             update_user_info(current_username, current_email)
-            
-#             switch_frame(password_manager_frame)
-#             clear_entries()
-#         else:
-#             messagebox.showerror("Error", "Invalid or expired verification code!")
-#     else:
-#         login_attempts += 1
-
-#         if login_attempts >= 3:
-#             login_disabled_until = time.time() + 5  # Disable login for 5 seconds
-#             login_attempts = 0  # Reset login attempts
-            
-#             messagebox.showerror("Error", "Too many login attempts. Try again in 5 seconds.")
-#             login_button.config(state="disabled")
-#             username_entry.config(state="disabled")
-#             password_entry.config(state="disabled")
-
-#             # Re-enable the login button after 5 seconds
-#             root.after(5000, enable_login_button)
-
-#         else:
-#             messagebox.showerror("Error", "Invalid username or password.")
-
 def login():
     global logged_in, login_attempts, login_disabled_until, current_username, current_email
 
@@ -555,17 +489,35 @@ def login():
         return
 
     if check_credentials(username, password):
-        logged_in = True
-
-        # Store the current username and email
-        current_username = username
-        current_email = None  # Remove the email assignment
-
-        # Update the user info in the Settings frame
-        update_user_info(current_username, current_email)
+        # Generate a verification code and its expiry timestamp
+        verification_code = ''.join(random.choice(string.digits) for _ in range(6))
+        verification_code_expiry = time.time() + 300  # Set expiry time to 5 minutes from now
         
-        switch_frame(password_manager_frame)
-        clear_entries()
+        # Retrieve the user's email
+        c.execute("SELECT email FROM users WHERE username = ?", (username,))
+        email = c.fetchone()[0]  # Assign the email value here
+        
+        # Send the verification code via email
+        send_login_verification_email(email, verification_code)
+        
+        # Prompt the user to enter the verification code
+        entered_code = simpledialog.askstring("Verification", "Enter the verification code sent to your email:")
+        
+        # Check the validity of the verification code
+        if entered_code == verification_code and time.time() <= verification_code_expiry:
+            logged_in = True
+            
+            # Store the current username and email
+            current_username = username
+            current_email = email
+
+            # Update the user info in the Settings frame
+            update_user_info(current_username, current_email)
+            
+            switch_frame(password_manager_frame)
+            clear_entries()
+        else:
+            messagebox.showerror("Error", "Invalid or expired verification code!")
     else:
         login_attempts += 1
 
@@ -583,7 +535,6 @@ def login():
 
         else:
             messagebox.showerror("Error", "Invalid username or password.")
-
 
 
 def enable_login_button():
