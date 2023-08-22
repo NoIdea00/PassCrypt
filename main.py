@@ -658,8 +658,8 @@ def generate_preference_password():
         # Split the additional keywords by comma and remove any leading/trailing spaces
         keywords = [keyword.strip() for keyword in additional_keywords.split(",")]
 
-        # Generate a random password with alphanumeric characters
-        password_characters = string.ascii_letters + string.digits
+        # Generate a random password with alphanumeric characters and symbols
+        password_characters = string.ascii_letters + string.digits + r".,!~%^&*()_+-=[]{};:\|<>?'/@#"
         password_length -= len(''.join(keywords))
         password = ''.join(random.choice(password_characters) for _ in range(password_length))
 
@@ -672,8 +672,8 @@ def generate_preference_password():
         # Convert the password list back to a string
         password = ''.join(password_list)
     else:
-        # Generate a random password with alphanumeric characters
-        password_characters = string.ascii_letters + string.digits
+        # Generate a random password with alphanumeric characters and symbols
+        password_characters = string.ascii_letters + string.digits + r".,!~"
         password = ''.join(random.choice(password_characters) for _ in range(password_length))
 
     # Insert the generated password into the password entry field
@@ -681,6 +681,7 @@ def generate_preference_password():
     pm_password_entry.delete(0, END)
     pm_password_entry.insert(0, password)
     pm_password_entry.config(state="readonly")  # Set the entry field back to read-only
+
 
 def check_credentials(username, password):
     # Implement your logic to check if the credentials are valid
@@ -1346,7 +1347,7 @@ buttons_frame.grid_rowconfigure(1, minsize=20)  # Create a bigger gap
 buttons_frame.grid_rowconfigure(2, minsize=20)  # Create the same gap as between the first and second rows
 
 # Buttons - Second Row
-clear_passwords_button = Button(buttons_frame, text="Clear Passwords", command=clear_passwords)
+clear_passwords_button = Button(buttons_frame, text="Clear Passwords List", command=clear_passwords)
 clear_passwords_button.grid(row=2, column=0, padx=5)
 
 switch_to_password_manager_button = Button(buttons_frame, text="Switch to Password Manager", command=lambda: switch_frame(password_manager_frame))
