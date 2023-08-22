@@ -45,12 +45,7 @@ The project's dependencies are listed in the `requirements.txt` file. You can in
 
 ## Contribution Guidelines
 
-We welcome contributions from the community to enhance PassCrypt's features and security. If you wish to contribute, please follow these guidelines:
-
-1. Fork the repository and create a new branch for your feature or bug fix.
-2. Commit your changes with clear and descriptive messages.
-3. Push your changes to your fork.
-4. Submit a pull request to the main repository, explaining the changes you've made.
+No Contribution Please. Thank You
 
 ## License
 
